@@ -38,7 +38,7 @@ func rewritePkgName(node ast.Node, pkgName string) {
 // rewriteIdent converts TypeXXX to its replacement defined in typeMap.
 func rewriteIdent(node ast.Node, typeMap map[string]Target, fset *token.FileSet) {
 	var file *ast.File
-	used := make(map[string]struct{})
+	var used []string
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.Ident:
@@ -46,7 +46,16 @@ func rewriteIdent(node ast.Node, typeMap map[string]Target, fset *token.FileSet)
 				if to, ok := typeMap[x.Name]; ok {
 					x.Name = to.Ident
 					if to.Import != "" {
-						used[to.Import] = struct{}{}
+						var found bool
+						for _, im := range used {
+							if im == to.Import {
+								found = true
+								break
+							}
+						}
+						if !found {
+							used = append(used, to.Import)
+						}
 					}
 				}
 			}
@@ -56,7 +65,7 @@ func rewriteIdent(node ast.Node, typeMap map[string]Target, fset *token.FileSet)
 		return true
 	})
 	if file != nil {
-		for im := range used {
+		for _, im := range used {
 			astutil.AddImport(fset, file, im)
 		}
 	}

@@ -6,18 +6,51 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 )
 
+func TestRewritePackage(t *testing.T) {
+	defer os.RemoveAll("rewrite_test")
+
+	err := RewritePackage("github.com/taylorchu/generic/test", "rewrite_test", map[string]Target{
+		"Type2": Target{Ident: "generic.Target", Import: "github.com/taylorchu/generic"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRewritePackageDot(t *testing.T) {
+	const dir = "rewrite_dot_test"
+
+	defer os.RemoveAll(dir)
+	os.Mkdir(dir, 0777)
+
+	err := os.Chdir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir("..")
+
+	os.Setenv("GOPACKAGE", dir)
+
+	err = RewritePackage("github.com/taylorchu/generic/test", ".", map[string]Target{
+		"Type2": Target{Ident: "generic.Target", Import: "github.com/taylorchu/generic"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestWalkSource(t *testing.T) {
 	want := []string{
-		"rewrite.go",
-		"type_map.go",
+		"test.go",
 	}
 	var got []string
-	err := walkSource("github.com/taylorchu/generic", func(path string) error {
+	err := walkSource("github.com/taylorchu/generic/test", func(path string) error {
 		got = append(got, filepath.Base(path))
 		return nil
 	})
