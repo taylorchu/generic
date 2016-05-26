@@ -19,12 +19,6 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-// Target represents replacement output.
-type Target struct {
-	Ident  string
-	Import string
-}
-
 // rewritePkgName sets current package name.
 func rewritePkgName(node *ast.File, pkgName string) {
 	node.Name.Name = pkgName
@@ -166,6 +160,30 @@ func walkSource(pkgPath string, sourceFunc func(string) error) error {
 	return nil
 }
 
+type packageTarget struct {
+	SameDir bool
+	NewName string
+	NewPath string
+}
+
+func parsePackageTarget(path string) (*packageTarget, error) {
+	t := new(packageTarget)
+	if strings.HasPrefix(path, ".") {
+		t.SameDir = true
+		t.NewPath = strings.Replace(strings.TrimPrefix(path, "."), "/", "_", -1)
+
+		t.NewName = os.Getenv("GOPACKAGE")
+		if t.NewName == "" {
+			return nil, errors.New("GOPACKAGE cannot be empty")
+		}
+	} else {
+		t.NewPath = path
+		t.NewName = filepath.Base(path)
+	}
+
+	return t, nil
+}
+
 // RewritePackage applies type replacements on a package in GOPATH, and saves results as a new package in $PWD.
 //
 // If there is a dir with the same name as newPkgPath, it will first be removed. It is possible to re-run this
@@ -173,10 +191,9 @@ func walkSource(pkgPath string, sourceFunc func(string) error) error {
 func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target) error {
 	var err error
 
-	var sameDir bool
-	if strings.HasPrefix(newPkgPath, ".") {
-		sameDir = true
-		newPkgPath = strings.Replace(strings.TrimPrefix(newPkgPath, "."), "/", "_", -1)
+	pt, err := parsePackageTarget(newPkgPath)
+	if err != nil {
+		return err
 	}
 
 	fset := token.NewFileSet()
@@ -197,27 +214,15 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 	// ast.NewPackage will try to resolve unresolved identifiers.
 	ast.NewPackage(fset, files, nil, nil)
 
-	// Find out new package name.
-	newPkgName := filepath.Base(newPkgPath)
-	if sameDir {
-		gopackage := os.Getenv("GOPACKAGE")
-		switch gopackage {
-		case "":
-			return errors.New("GOPACKAGE cannot be empty")
-		default:
-			newPkgName = gopackage
-		}
-	}
-
 	// Apply AST changes and refresh.
 	buf := new(bytes.Buffer)
 	var tc []*ast.File
 	for path, f := range files {
-		rewritePkgName(f, newPkgName)
+		rewritePkgName(f, pt.NewName)
 		removeTypeDecl(f, typeMap)
 		rewriteIdent(f, typeMap, fset)
-		if sameDir {
-			rewriteTopLevelIdent(f, newPkgPath)
+		if pt.SameDir {
+			rewriteTopLevelIdent(f, pt.NewPath)
 		}
 
 		// AST in dirty state; refresh
@@ -245,11 +250,11 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		return err
 	}
 
-	if sameDir {
+	if pt.SameDir {
 		for path, f := range files {
 			// Print ast to file.
 			var dest *os.File
-			dest, err = os.Create(fmt.Sprintf("_%s_%s", newPkgPath, filepath.Base(path)))
+			dest, err = os.Create(fmt.Sprintf("_%s_%s", pt.NewPath, filepath.Base(path)))
 			if err != nil {
 				return err
 			}
@@ -263,25 +268,25 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		return nil
 	}
 
-	err = os.RemoveAll(newPkgPath)
+	err = os.RemoveAll(pt.NewPath)
 	if err != nil {
 		return err
 	}
 
-	err = os.MkdirAll(newPkgPath, 0777)
+	err = os.MkdirAll(pt.NewPath, 0777)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
-			os.RemoveAll(newPkgPath)
+			os.RemoveAll(pt.NewPath)
 		}
 	}()
 
 	for path, f := range files {
 		// Print ast to file.
 		var dest *os.File
-		dest, err = os.Create(fmt.Sprintf("%s/%s", newPkgPath, filepath.Base(path)))
+		dest, err = os.Create(fmt.Sprintf("%s/%s", pt.NewPath, filepath.Base(path)))
 		if err != nil {
 			return err
 		}

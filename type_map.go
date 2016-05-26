@@ -5,6 +5,12 @@ import (
 	"strings"
 )
 
+// Target represents replacement output.
+type Target struct {
+	Ident  string
+	Import string
+}
+
 // ParseTypeMap parses type replacements.
 func ParseTypeMap(args []string) (map[string]Target, error) {
 	typeMap := make(map[string]Target)
