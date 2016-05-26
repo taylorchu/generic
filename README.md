@@ -54,7 +54,7 @@ and then run `go generate`:
 5. Save the results as a new package called `int_sort` in `$PWD`.
   - This prevents conflicting definitions from the package.
   - If there is already a dir called `int_sort`, it will first be removed.
-  - If the new package is `.`, it will save the results in the current dir, and use `$GOPACKAGE` set by `go-generate`.
+  - If the new package starts with `.`, it will save the results in `$PWD`, and use `$GOPACKAGE` set by `go-generate`.
     However, it will not remove any file if an error occurrs.
 
 
@@ -67,7 +67,7 @@ package p
 
 type Type int
 
-func (Type Type) Type(Type Type) {
+func (Type Type) Type(_ Type) {
 
 }
 ```
@@ -75,7 +75,7 @@ func (Type Type) Type(Type Type) {
 ```go
 package p
 
-func (Type OtherType) Type(Type OtherType) {
+func (Type OtherType) Type(_ OtherType) {
 
 }
 ```
