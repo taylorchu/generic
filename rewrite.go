@@ -94,27 +94,50 @@ func removeTypeDecl(node *ast.File, typeMap map[string]Target) {
 	}
 }
 
+// rewriteTopLevelIdent adds a prefix to top-level identifiers and their uses.
+// For example, XXX will be converted to _prefix_XXX.
+//
+// This prevents name conflicts when a package is rewritten to PWD.
 func rewriteTopLevelIdent(node *ast.File, prefix string) {
+	declMap := make(map[interface{}]string)
 	for i := len(node.Decls) - 1; i >= 0; i-- {
 		switch decl := node.Decls[i].(type) {
 		case *ast.FuncDecl:
-			if decl.Recv != nil {
-				return
+			if decl.Recv == nil {
+				decl.Name.Name = fmt.Sprintf("_%s_%s", prefix, decl.Name.Name)
+				declMap[decl] = decl.Name.Name
 			}
-			decl.Name.Name = fmt.Sprintf("_%s_%s", prefix, decl.Name.Name)
 		case *ast.GenDecl:
 			for _, spec := range decl.Specs {
 				switch x := spec.(type) {
 				case *ast.TypeSpec:
 					x.Name.Name = fmt.Sprintf("_%s_%s", prefix, x.Name.Name)
+					declMap[x] = x.Name.Name
 				case *ast.ValueSpec:
 					for _, ident := range x.Names {
 						ident.Name = fmt.Sprintf("_%s_%s", prefix, ident.Name)
+						declMap[x] = ident.Name
 					}
 				}
 			}
 		}
 	}
+
+	ast.Inspect(node, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.Ident:
+			if x.Obj == nil || x.Obj.Decl == nil {
+				return false
+			}
+			name, ok := declMap[x.Obj.Decl]
+			if !ok {
+				return false
+			}
+			x.Name = name
+			return false
+		}
+		return true
+	})
 }
 
 // walkSource visits all .go files in a package path except tests.
@@ -216,6 +239,9 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 	conf := types.Config{Importer: importer.Default()}
 	_, err = conf.Check("", fset, tc, nil)
 	if err != nil {
+		for _, f := range tc {
+			printer.Fprint(os.Stderr, fset, f)
+		}
 		return err
 	}
 

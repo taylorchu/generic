@@ -21,7 +21,7 @@ func TestRewritePackageInternal(t *testing.T) {
 }
 
 func TestRewritePackageDot(t *testing.T) {
-	testRewritePackage(t, "github.com/taylorchu/generic/fixture/basic", ".result", map[string]Target{
+	testRewritePackage(t, "github.com/taylorchu/generic/fixture/rename", ".result", map[string]Target{
 		"Type": Target{Ident: "int64"},
-	}, "output/dot")
+	}, "output/rename")
 }
