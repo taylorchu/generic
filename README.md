@@ -57,9 +57,7 @@ and then run `go generate`:
   - If the new package starts with `.`, it will save the results in `$PWD`:
       - The package name is set to `$GOPACKAGE` by `go-generate`.
       - All top-level identifiers will have prefixes to prevent conflicts, and their uses will also be updated.
-        For example, `.result` will convert `func add() {}` to `func result_add() {}`.
       - Filenames will be renamed to prevent conflicts.
-        For example, `.result` will convert `int_sort/add.go` to `result_add.go`.
 
 ## Tricky examples that other code generation tools might fail
 

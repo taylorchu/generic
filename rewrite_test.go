@@ -25,3 +25,13 @@ func TestRewritePackageDot(t *testing.T) {
 		"Type": Target{Ident: "int64"},
 	}, "output/rename")
 }
+
+func TestRewritePackageDotContainer(t *testing.T) {
+	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/container", ".result", map[string]Target{
+		"Type":          Target{Ident: "*Data"},
+		"TypeContainer": Target{Ident: "Box"},
+	},
+		"input/dot_container",
+		"output/dot_container",
+	)
+}

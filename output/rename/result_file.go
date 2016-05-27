@@ -3,23 +3,23 @@ package GOPACKAGE
 import "fmt"
 
 var (
-	result_A = map[int]string{
+	resultA = map[int]string{
 		1: "hello",
 	}
 )
 
 const (
-	result_X = 123
+	resultX = 123
 )
 
 func result_add() {
 }
 
-type result_Struct struct {
+type resultStruct struct {
 	Val int64
 }
 
-func (s result_Struct) hello() {
+func (s resultStruct) hello() {
 	result_add()
-	fmt.Println(result_X, result_A)
+	fmt.Println(resultX, resultA)
 }

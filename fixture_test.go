@@ -3,6 +3,7 @@ package generic
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -10,12 +11,23 @@ import (
 )
 
 func testRewritePackage(t *testing.T, pkgPath, newPkgPath string, typeMap map[string]Target, expect string) {
+	testRewritePackageWithInput(t, pkgPath, newPkgPath, typeMap, "", expect)
+}
+
+func testRewritePackageWithInput(t *testing.T, pkgPath, newPkgPath string, typeMap map[string]Target, input, expect string) {
 	const dirname = "rewrite_test"
 	err := os.MkdirAll(dirname, 0777)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dirname)
+
+	if input != "" {
+		err = copyDir(dirname, input)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	err = os.Chdir(dirname)
 	if err != nil {
@@ -37,6 +49,36 @@ func testRewritePackage(t *testing.T, pkgPath, newPkgPath string, typeMap map[st
 
 	os.Chdir("..")
 	assertEqualDir(t, dirname, expect)
+}
+
+func copyDir(to, from string) error {
+	fi, err := ioutil.ReadDir(from)
+	if err != nil {
+		return err
+	}
+	for _, info := range fi {
+		if info.IsDir() {
+			continue
+		}
+
+		tof, err := os.Create(fmt.Sprintf("%s/%s", to, info.Name()))
+		if err != nil {
+			return err
+		}
+		defer tof.Close()
+
+		fromf, err := os.Open(fmt.Sprintf("%s/%s", from, info.Name()))
+		if err != nil {
+			return err
+		}
+		defer fromf.Close()
+
+		_, err = io.Copy(tof, fromf)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func assertEqualDir(t *testing.T, path1, path2 string) {

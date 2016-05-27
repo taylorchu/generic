@@ -77,10 +77,17 @@ func removeTypeDecl(node *ast.File, typeMap map[string]Target) {
 			if !ok {
 				continue
 			}
-			if _, ok := typeMap[typeSpec.Name.Name]; ok {
-				remove = true
-				break
+			_, ok = typeMap[typeSpec.Name.Name]
+			if !ok {
+				continue
 			}
+
+			_, ok = typeSpec.Type.(*ast.Ident)
+			if !ok {
+				continue
+			}
+			remove = true
+			break
 		}
 		if remove {
 			node.Decls = append(node.Decls[:i], node.Decls[i+1:]...)
@@ -89,28 +96,45 @@ func removeTypeDecl(node *ast.File, typeMap map[string]Target) {
 }
 
 // rewriteTopLevelIdent adds a prefix to top-level identifiers and their uses.
-// For example, XXX will be converted to _prefix_XXX.
+// For example, XXX will be converted to prefixXXX, and xxx will be converted to prefix_xxx.
 //
 // This prevents name conflicts when a package is rewritten to PWD.
-func rewriteTopLevelIdent(node *ast.File, prefix string) {
+func rewriteTopLevelIdent(node *ast.File, prefix string, typeMap map[string]Target) {
+	invTypeMap := make(map[string]struct{})
+	for _, to := range typeMap {
+		invTypeMap[to.Ident] = struct{}{}
+	}
+
+	prefixIdent := func(name string) string {
+		if ast.IsExported(name) {
+			return fmt.Sprintf("%s%s", prefix, name)
+		} else {
+			return fmt.Sprintf("%s_%s", prefix, name)
+		}
+	}
+
 	declMap := make(map[interface{}]string)
-	for i := len(node.Decls) - 1; i >= 0; i-- {
-		switch decl := node.Decls[i].(type) {
+	for _, decl := range node.Decls {
+		switch decl := decl.(type) {
 		case *ast.FuncDecl:
-			if decl.Recv == nil {
-				decl.Name.Name = fmt.Sprintf("%s_%s", prefix, decl.Name.Name)
-				declMap[decl] = decl.Name.Name
+			if decl.Recv != nil {
+				continue
 			}
+			decl.Name.Name = prefixIdent(decl.Name.Name)
+			declMap[decl] = decl.Name.Name
 		case *ast.GenDecl:
 			for _, spec := range decl.Specs {
-				switch x := spec.(type) {
+				switch spec := spec.(type) {
 				case *ast.TypeSpec:
-					x.Name.Name = fmt.Sprintf("%s_%s", prefix, x.Name.Name)
-					declMap[x] = x.Name.Name
+					if _, ok := invTypeMap[spec.Name.Name]; ok {
+						continue
+					}
+					spec.Name.Name = prefixIdent(spec.Name.Name)
+					declMap[spec] = spec.Name.Name
 				case *ast.ValueSpec:
-					for _, ident := range x.Names {
-						ident.Name = fmt.Sprintf("%s_%s", prefix, ident.Name)
-						declMap[x] = ident.Name
+					for _, ident := range spec.Names {
+						ident.Name = prefixIdent(ident.Name)
+						declMap[spec] = ident.Name
 					}
 				}
 			}
@@ -136,7 +160,6 @@ func rewriteTopLevelIdent(node *ast.File, prefix string) {
 
 // walkSource visits all .go files in a package path except tests.
 func walkSource(pkgPath string, sourceFunc func(string) error) error {
-	pkgPath = fmt.Sprintf("%s/src/%s", os.Getenv("GOPATH"), pkgPath)
 	fi, err := ioutil.ReadDir(pkgPath)
 	if err != nil {
 		return err
@@ -197,7 +220,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 
 	fset := token.NewFileSet()
 	files := make(map[string]*ast.File)
-	err = walkSource(pkgPath, func(path string) error {
+	err = walkSource(fmt.Sprintf("%s/src/%s", os.Getenv("GOPATH"), pkgPath), func(path string) error {
 		f, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
 			return err
@@ -221,7 +244,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		removeTypeDecl(f, typeMap)
 		rewriteIdent(f, typeMap, fset)
 		if pt.SameDir {
-			rewriteTopLevelIdent(f, pt.NewPath)
+			rewriteTopLevelIdent(f, pt.NewPath, typeMap)
 		}
 
 		// AST in dirty state; refresh
@@ -240,6 +263,22 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 	}
 
 	// Type check.
+
+	if pt.SameDir {
+		// Also add same-dir files.
+		err = walkSource(".", func(path string) error {
+			f, err := parser.ParseFile(fset, path, nil, 0)
+			if err != nil {
+				return err
+			}
+			tc = append(tc, f)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	conf := types.Config{Importer: importer.Default()}
 	_, err = conf.Check("", fset, tc, nil)
 	if err != nil {
