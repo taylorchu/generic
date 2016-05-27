@@ -98,18 +98,18 @@ func rewriteTopLevelIdent(node *ast.File, prefix string) {
 		switch decl := node.Decls[i].(type) {
 		case *ast.FuncDecl:
 			if decl.Recv == nil {
-				decl.Name.Name = fmt.Sprintf("_%s_%s", prefix, decl.Name.Name)
+				decl.Name.Name = fmt.Sprintf("%s_%s", prefix, decl.Name.Name)
 				declMap[decl] = decl.Name.Name
 			}
 		case *ast.GenDecl:
 			for _, spec := range decl.Specs {
 				switch x := spec.(type) {
 				case *ast.TypeSpec:
-					x.Name.Name = fmt.Sprintf("_%s_%s", prefix, x.Name.Name)
+					x.Name.Name = fmt.Sprintf("%s_%s", prefix, x.Name.Name)
 					declMap[x] = x.Name.Name
 				case *ast.ValueSpec:
 					for _, ident := range x.Names {
-						ident.Name = fmt.Sprintf("_%s_%s", prefix, ident.Name)
+						ident.Name = fmt.Sprintf("%s_%s", prefix, ident.Name)
 						declMap[x] = ident.Name
 					}
 				}
@@ -171,7 +171,6 @@ func parsePackageTarget(path string) (*packageTarget, error) {
 	if strings.HasPrefix(path, ".") {
 		t.SameDir = true
 		t.NewPath = strings.Replace(strings.TrimPrefix(path, "."), "/", "_", -1)
-
 		t.NewName = os.Getenv("GOPACKAGE")
 		if t.NewName == "" {
 			return nil, errors.New("GOPACKAGE cannot be empty")
@@ -254,7 +253,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		for path, f := range files {
 			// Print ast to file.
 			var dest *os.File
-			dest, err = os.Create(fmt.Sprintf("_%s_%s", pt.NewPath, filepath.Base(path)))
+			dest, err = os.Create(fmt.Sprintf("%s_%s", pt.NewPath, filepath.Base(path)))
 			if err != nil {
 				return err
 			}
