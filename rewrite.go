@@ -95,6 +95,22 @@ func removeTypeDecl(node *ast.File, typeMap map[string]Target) {
 	}
 }
 
+// findTypeDecl finds type declarations.
+func findTypeDecl(node *ast.File) (ret []ast.Decl) {
+	for _, decl := range node.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		if genDecl.Tok != token.TYPE {
+			continue
+		}
+
+		ret = append(ret, decl)
+	}
+	return
+}
+
 // rewriteTopLevelIdent adds a prefix to top-level identifiers and their uses.
 // For example, XXX will be converted to prefixXXX, and xxx will be converted to prefix_xxx.
 //
@@ -265,13 +281,21 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 	// Type check.
 
 	if pt.SameDir {
-		// Also add same-dir files.
+		// Also include same-dir files.
+		// However, it is silly to add the entire file,
+		// because that file might have identifiers from another generic package.
 		err = walkSource(".", func(path string) error {
 			f, err := parser.ParseFile(fset, path, nil, 0)
 			if err != nil {
 				return err
 			}
-			tc = append(tc, f)
+			decl := findTypeDecl(f)
+			if len(decl) > 0 {
+				tc = append(tc, &ast.File{
+					Decls: decl,
+					Name:  f.Name,
+				})
+			}
 			return nil
 		})
 		if err != nil {
