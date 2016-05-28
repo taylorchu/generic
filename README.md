@@ -146,6 +146,20 @@ Type-checking and ast-based replacement ensure that the tool doesn't generate in
  - This tool tries NOT to apply any restriction for package creator except that any TypeXXX might be rewritten. Package creator has full flexibility to write normal go code.
  - It is common to distribute go code at package-level.
 
+## Best practices
+
+### Replace TypeXXX with types defined in the _current_ package
+
+The package name should start with `.`. For example, `.queue`. The tool will output in the current package (instead of creating a new sub-package) to prevent circular imports.
+
+### Replace TypeXXX with _built-in_ types, or types defined in _another_ package
+
+The package name should start with `internal/`. For example, `internal/queue`.
+
+> When the go command sees an import of a package with internal in its path, it verifies that the package doing the import is within the tree rooted at the parent of the internal directory. For example, a package .../a/b/c/internal/d/e/f can be imported only by code in the directory tree rooted at .../a/b/c. It cannot be imported by code in .../a/b/g or in any other repository.
+
+See [Internal packages](https://golang.org/doc/go1.4#internalpackages).
+
 ## LICENSE
 
 The MIT License (MIT)
