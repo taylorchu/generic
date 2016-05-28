@@ -107,7 +107,7 @@ func assertEqualDir(t *testing.T, path1, path2 string) {
 				t.Fatal(err)
 			}
 			if !bytes.Equal(b1, b2) {
-				t.Fatalf("%s:\n%s, %s:\n%s", p1, b1, p2, b2)
+				t.Fatalf("\n%s:\n\n%s\n%s:\n\n%s\n", p1, b1, p2, b2)
 			}
 		}
 	}
