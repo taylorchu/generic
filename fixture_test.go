@@ -33,12 +33,10 @@ func testRewritePackageWithInput(t *testing.T, pkgPath, newPkgPath string, typeM
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.Chdir("..")
 
 	if strings.HasPrefix(newPkgPath, ".") {
-		err = os.Setenv("GOPACKAGE", "GOPACKAGE")
-		if err != nil {
-			t.Fatal(err)
-		}
+		os.Setenv("GOPACKAGE", "GOPACKAGE")
 		defer os.Unsetenv("GOPACKAGE")
 	}
 
@@ -47,8 +45,7 @@ func testRewritePackageWithInput(t *testing.T, pkgPath, newPkgPath string, typeM
 		t.Fatal(err)
 	}
 
-	os.Chdir("..")
-	assertEqualDir(t, dirname, expect)
+	assertEqualDir(t, ".", fmt.Sprintf("../%s", expect))
 }
 
 func copyDir(to, from string) error {
