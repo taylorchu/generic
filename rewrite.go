@@ -100,11 +100,6 @@ func removeTypeDecl(node *ast.File, typeMap map[string]Target) {
 //
 // This prevents name conflicts when a package is rewritten to PWD.
 func rewriteTopLevelIdent(node *ast.File, prefix string, typeMap map[string]Target) {
-	invTypeMap := make(map[string]struct{})
-	for _, to := range typeMap {
-		invTypeMap[to.Ident] = struct{}{}
-	}
-
 	prefixIdent := func(name string) string {
 		if ast.IsExported(name) {
 			return fmt.Sprintf("%s%s", prefix, name)
@@ -126,8 +121,12 @@ func rewriteTopLevelIdent(node *ast.File, prefix string, typeMap map[string]Targ
 			for _, spec := range decl.Specs {
 				switch spec := spec.(type) {
 				case *ast.TypeSpec:
-					if _, ok := invTypeMap[spec.Name.Name]; ok {
-						continue
+					obj := spec.Name.Obj
+					if obj != nil && obj.Kind == ast.Typ {
+						if to, ok := typeMap[obj.Name]; ok && spec.Name.Name == to.Ident {
+							// If this identifier is already rewritten before, we don't need to prefix it.
+							continue
+						}
 					}
 					spec.Name.Name = prefixIdent(spec.Name.Name)
 					declMap[spec] = spec.Name.Name
@@ -141,6 +140,7 @@ func rewriteTopLevelIdent(node *ast.File, prefix string, typeMap map[string]Targ
 		}
 	}
 
+	// After top-level identifiers are renamed, find where they are used, and rewrite those.
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.Ident:
