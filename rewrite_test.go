@@ -26,12 +26,29 @@ func TestRewritePackageDot(t *testing.T) {
 	}, "output/rename")
 }
 
+func TestRewritePackageQueue(t *testing.T) {
+	testRewritePackage(t, "github.com/taylorchu/generic/fixture/queue", "result", map[string]Target{
+		"Type":      Target{Ident: "int64"},
+		"TypeQueue": Target{Ident: "FIFO"},
+	}, "output/queue")
+}
+
+func TestRewritePackageDotQueue(t *testing.T) {
+	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/queue", ".result", map[string]Target{
+		"Type":      Target{Ident: "Data"},
+		"TypeQueue": Target{Ident: "FIFO"},
+	},
+		"input/dot_data",
+		"output/dot_queue",
+	)
+}
+
 func TestRewritePackageDotContainer(t *testing.T) {
 	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/container", ".result", map[string]Target{
 		"Type":          Target{Ident: "*Data"},
 		"TypeContainer": Target{Ident: "Box"},
 	},
-		"input/dot_container",
+		"input/dot_data",
 		"output/dot_container",
 	)
 }
