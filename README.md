@@ -29,6 +29,8 @@ This is an experiment to enable generic with code generation in the most elegant
 
 ## What does `generic` do?
 
+![](http://i.imgur.com/X07XInF.png)
+
 `generic` does the followings if you put the following comments in your go code:
 
 ```go
@@ -45,81 +47,104 @@ and then run `go generate`:
 2. Gather `.go` files (skip `_test.go`) in github.com/go/sort
 3. Apply AST rewrite to replace Type in those `.go` files with int.
   - Only type that starts with __Type__ can be converted. This enables variable naming like __TypeKey__ or __TypeValue__
-  that closely expresses meaning.
-  - In the package, we can define types like `type Type int` to write tests for a specific type. This is why we choose
-  to skip `_test.go` because they will not work after rewrite.
+  that closely expresses meaning while there is still a namespace for type placeholder.
   - Many rewrite rules are possible: `TypeKey->string TypeValue->int`.
   - We can rewrite non-builtin types with `:`: `Type->github.com/go/types:types.Box`.
 4. Type-check results.
 5. Save the results as a new package called `int_sort` in `$PWD`.
-  - This prevents conflicting definitions from the package.
   - If there is already a dir called `int_sort`, it will first be removed.
   - If the new package starts with `.`, it will save the results in `$PWD`:
       - The package name is set to `$GOPACKAGE` by `go-generate`.
       - All top-level identifiers will have prefixes to prevent conflicts, and their uses will also be updated.
       - Filenames will be renamed to prevent conflicts.
 
-## Tricky examples that other code generation tools might fail
-
-### Identifier with same name (Type->OtherType)
+## Example
 
 ```go
-package p
+package queue
 
-type Type int
+type Type string
 
-func (Type Type) Type(_ Type) {
+// TypeQueue represents a queue of Type types.
+type TypeQueue struct {
+	items []Type
+}
 
+// New makes a new empty Type queue.
+func New() *TypeQueue {
+	return &TypeQueue{items: make([]Type, 0)}
+}
+
+// Enq adds an item to the queue.
+func (q *TypeQueue) Enq(obj Type) *TypeQueue {
+	q.items = append(q.items, obj)
+	return q
+}
+
+// Deq removes and returns the next item in the queue.
+func (q *TypeQueue) Deq() Type {
+	obj := q.items[0]
+	q.items = q.items[1:]
+	return obj
+}
+
+// Len gets the current number of Type items in the queue.
+func (q *TypeQueue) Len() int {
+	return len(q.items)
 }
 ```
 
+```
+result Type->int64 TypeQueue->FIFO
+```
+
 ```go
-package p
+package result
 
-func (Type OtherType) Type(_ OtherType) {
+type FIFO struct {
+	items []int64
+}
 
+func New() *FIFO {
+	return &FIFO{items: make([]int64, 0)}
+}
+
+func (q *FIFO) Enq(obj int64) *FIFO {
+	q.items = append(q.items, obj)
+	return q
+}
+
+func (q *FIFO) Deq() int64 {
+	obj := q.items[0]
+	q.items = q.items[1:]
+	return obj
+}
+
+func (q *FIFO) Len() int {
+	return len(q.items)
 }
 ```
 
-### Import (Type2->github.com/golang/test:test.OtherType)
+You can find more examples in `fixture/` and their outputs in `output/`.
 
-```go
-package p
+## FAQ
 
-type Type3 Type2
-```
+### Why are type-checking and ast-based replacement important?
 
-```go
-package p
+Type-checking and ast-based replacement ensure that the tool doesn't generate invalid code even you or the tool make mistakes, and rewrites identifiers in cases that it shouldn't.
 
-import "github.com/golang/test"
+### Why is type placeholder designed this way?
 
-type Type3 test.OtherType2
-```
+`type TypeXXX int32`
 
-### Simple type-check (Type2->map[string]int63)
+ - It provides a namespace for replaceable types.
+ - Knowing that this type might be replaced, package creator can still write go-testable code with a concrete type.
+ - It can express meaning. For example, `TypeQueue` shows that it is a queue.
 
-```go
-package p
+### Why does this tool rewrite at package-level instead of file-level?
 
-type Type3 Type2
-```
-
-```
-undeclared name: int63
-```
-
-### Type2->github.com/taylorchu/generic:generic.Target1
-
-```go
-package p
-
-type Type3 Type2
-```
-
-```
-Target1 not declared by package generic
-```
+ - This tool tries NOT to apply any restriction for package creator except that any TypeXXX might be rewritten. Package creator has full flexibility to write normal go code.
+ - It is common to distribute go code at package-level.
 
 ## LICENSE
 
