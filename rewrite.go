@@ -96,18 +96,8 @@ func removeTypeDecl(node *ast.File, typeMap map[string]Target) {
 	}
 }
 
-// containsImportBase checks whether a import base is in a path value.
-//
-// For example, check ast in "go/ast".
-func containsImportBase(pathValue, base string) bool {
-	return fmt.Sprintf(`"%s"`, base) == pathValue ||
-		strings.HasSuffix(pathValue, fmt.Sprintf(`/%s"`, base))
-}
-
-// findDecl finds type and related import declarations.
+// findDecl finds type and related declarations.
 func findDecl(node *ast.File) (ret []ast.Decl) {
-	// find related imports
-	var importBase []string
 	for _, decl := range node.Decls {
 		genDecl, ok := decl.(*ast.GenDecl)
 		if !ok {
@@ -117,53 +107,21 @@ func findDecl(node *ast.File) (ret []ast.Decl) {
 			continue
 		}
 
-		ast.Inspect(decl, func(n ast.Node) bool {
-			switch x := n.(type) {
-			case *ast.SelectorExpr:
-				if ident, ok := x.X.(*ast.Ident); ok {
-					var found bool
-					for _, im := range importBase {
-						if im == ident.Name {
-							found = true
-							break
-						}
-					}
-					if !found {
-						importBase = append(importBase, ident.Name)
-					}
-				}
+		for _, spec := range genDecl.Specs {
+			typeSpec, ok := spec.(*ast.TypeSpec)
+			if !ok {
+				continue
 			}
-			return true
-		})
-	}
 
-	for _, decl := range node.Decls {
-		genDecl, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		switch genDecl.Tok {
-		case token.TYPE:
-			ret = append(ret, decl)
-		case token.IMPORT:
-			var importSpec []ast.Spec
-			for _, spec := range genDecl.Specs {
-				switch spec := spec.(type) {
-				case *ast.ImportSpec:
-					for _, im := range importBase {
-						if containsImportBase(spec.Path.Value, im) {
-							importSpec = append(importSpec, spec)
-						}
-					}
-				}
-			}
-			if len(importSpec) > 0 {
-				ret = append(ret, &ast.GenDecl{
-					Tok:   token.IMPORT,
-					Specs: importSpec,
-				})
+			// Replace a complex declaration with a dummy idenifier.
+			//
+			// It seems simpler to check whether a type is defined.
+			typeSpec.Type = &ast.Ident{
+				Name: "uint32",
 			}
 		}
+
+		ret = append(ret, decl)
 	}
 	return
 }
