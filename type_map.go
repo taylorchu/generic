@@ -53,9 +53,6 @@ func ParseTypeMap(args []string) (map[string]Target, error) {
 		if t.Ident == "" {
 			return nil, errors.New("REPL type cannot be empty")
 		}
-		if strings.ContainsAny(t.Ident, " ->") {
-			return nil, errors.New("REPL type must not contain invalid chars")
-		}
 
 		typeMap[from] = t
 	}
