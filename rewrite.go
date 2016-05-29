@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"go/format"
 	"go/importer"
 	"go/parser"
 	"go/printer"
@@ -378,7 +379,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 			}
 			defer dest.Close()
 
-			err = printer.Fprint(dest, fset, f)
+			err = format.Node(dest, fset, f)
 			if err != nil {
 				return err
 			}
@@ -410,7 +411,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		}
 		defer dest.Close()
 
-		err = printer.Fprint(dest, fset, f)
+		err = format.Node(dest, fset, f)
 		if err != nil {
 			return err
 		}
