@@ -43,6 +43,15 @@ func TestRewritePackageDotQueue(t *testing.T) {
 	)
 }
 
+func TestRewritePackageDotQueuePrefix(t *testing.T) {
+	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/queue", ".result", map[string]Target{
+		"Type": Target{Ident: "Data"},
+	},
+		"input/dot_data",
+		"output/dot_queue_prefix",
+	)
+}
+
 func TestRewritePackageDotContainer(t *testing.T) {
 	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/container", ".result", map[string]Target{
 		"Type":          Target{Ident: "*Data"},
