@@ -224,7 +224,7 @@ func parsePackageTarget(path string) (*packageTarget, error) {
 	t := new(packageTarget)
 	if strings.HasPrefix(path, ".") {
 		t.SameDir = true
-		t.NewPath = strings.Replace(strings.TrimPrefix(path, "."), "/", "_", -1)
+		t.NewPath = strings.TrimPrefix(path, ".")
 		t.NewName = os.Getenv("GOPACKAGE")
 		if t.NewName == "" {
 			return nil, errors.New("GOPACKAGE cannot be empty")

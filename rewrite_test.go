@@ -20,10 +20,10 @@ func TestRewritePackageInternal(t *testing.T) {
 	}, "output/internal")
 }
 
-func TestRewritePackageDot(t *testing.T) {
+func TestRewritePackageDotRename(t *testing.T) {
 	testRewritePackage(t, "github.com/taylorchu/generic/fixture/rename", ".result", map[string]Target{
 		"Type": Target{Ident: "int64"},
-	}, "output/rename")
+	}, "output/dot_rename")
 }
 
 func TestRewritePackageQueue(t *testing.T) {
@@ -50,5 +50,14 @@ func TestRewritePackageDotContainer(t *testing.T) {
 	},
 		"input/dot_data",
 		"output/dot_container",
+	)
+}
+
+func TestRewritePackageDotRenameUnresolved(t *testing.T) {
+	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/rename", ".result", map[string]Target{
+		"Type": Target{Ident: "Data"},
+	},
+		"input/dot_data_unresolved",
+		"output/dot_rename_unresolved",
 	)
 }
