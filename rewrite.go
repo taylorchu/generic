@@ -74,10 +74,8 @@ func removeTypeDecl(node *ast.File, typeMap map[string]Target) {
 		}
 		var remove bool
 		for _, spec := range genDecl.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok {
-				continue
-			}
+			typeSpec := spec.(*ast.TypeSpec)
+
 			_, ok = typeMap[typeSpec.Name.Name]
 			if !ok {
 				continue
@@ -108,10 +106,7 @@ func findDecl(node *ast.File) (ret []ast.Decl) {
 		}
 
 		for _, spec := range genDecl.Specs {
-			typeSpec, ok := spec.(*ast.TypeSpec)
-			if !ok {
-				continue
-			}
+			typeSpec := spec.(*ast.TypeSpec)
 
 			// Replace a complex declaration with a dummy idenifier.
 			//

@@ -1,4 +1,4 @@
 package method
 
-func (Type Type) Type(_ Type2) {
+func (Type2 Type) Type2(_ Type2, _ Type2) {
 }
