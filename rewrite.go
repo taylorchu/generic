@@ -122,16 +122,11 @@ func findDecl(node *ast.File) (ret []ast.Decl) {
 }
 
 // rewriteTopLevelIdent adds a prefix to top-level identifiers and their uses.
-// For example, XXX will be converted to prefixXXX, and xxx will be converted to prefix_xxx.
 //
 // This prevents name conflicts when a package is rewritten to PWD.
 func rewriteTopLevelIdent(node *ast.File, prefix string, typeMap map[string]Target) {
 	prefixIdent := func(name string) string {
-		if ast.IsExported(name) {
-			return fmt.Sprintf("%s%s", prefix, name)
-		} else {
-			return fmt.Sprintf("%s_%s", prefix, name)
-		}
+		return lintName(fmt.Sprintf("%s_%s", prefix, name))
 	}
 
 	declMap := make(map[interface{}]string)
@@ -215,6 +210,7 @@ type packageTarget struct {
 	NewPath string
 }
 
+// parsePackageTarget finds where a package can be rewritten.
 func parsePackageTarget(path string) (*packageTarget, error) {
 	t := new(packageTarget)
 	if strings.HasPrefix(path, ".") {
@@ -288,8 +284,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		tc = append(tc, f)
 	}
 
-	// Type check.
-
+	// Type-check.
 	if pt.SameDir {
 		// Also include same-dir files.
 		// However, it is silly to add the entire file,
@@ -312,7 +307,6 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 			return err
 		}
 	}
-
 	conf := types.Config{Importer: importer.Default()}
 	_, err = conf.Check("", fset, tc, nil)
 	if err != nil {

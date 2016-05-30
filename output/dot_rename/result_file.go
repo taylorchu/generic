@@ -12,7 +12,7 @@ const (
 	resultX = 123
 )
 
-func result_add() {
+func resultAdd() {
 }
 
 type resultStruct struct {
@@ -20,6 +20,6 @@ type resultStruct struct {
 }
 
 func (s resultStruct) hello() {
-	result_add()
+	resultAdd()
 	fmt.Println(resultX, resultA)
 }
