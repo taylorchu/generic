@@ -12,9 +12,6 @@ const (
 	resultX = 123
 )
 
-func resultAdd() {
-}
-
 type resultStruct struct {
 	Val Data
 }

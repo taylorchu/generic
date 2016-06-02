@@ -12,9 +12,6 @@ const (
 	X = 123
 )
 
-func add() {
-}
-
 type Struct struct {
 	Val Type
 }
