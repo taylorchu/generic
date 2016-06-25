@@ -7,7 +7,7 @@ import (
 	"go/types"
 )
 
-type im struct {
+type importer struct {
 	cache map[string]*types.Package
 }
 
@@ -17,12 +17,12 @@ type im struct {
 // Many applications use the gcimporter package to read type information from compiled object files.
 // There's no guarantee that those files are even remotely recent.
 func NewImporter() types.Importer {
-	return &im{
+	return &importer{
 		cache: make(map[string]*types.Package),
 	}
 }
 
-func (i *im) Import(pkgPath string) (*types.Package, error) {
+func (i *importer) Import(pkgPath string) (*types.Package, error) {
 	if pkgPath == "unsafe" {
 		return types.Unsafe, nil
 	}

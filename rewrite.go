@@ -122,7 +122,7 @@ func findDecl(node *ast.File) (ret []ast.Decl) {
 
 // rewriteTopLevelIdent adds a prefix to top-level identifiers and their uses.
 //
-// This prevents name conflicts when a package is rewritten to PWD.
+// This prevents name conflicts when a package is rewritten to $PWD.
 func rewriteTopLevelIdent(nodes map[string]*ast.File, prefix string, typeMap map[string]Target) {
 	prefixIdent := func(name string) string {
 		return lintName(fmt.Sprintf("%s_%s", prefix, name))
@@ -225,7 +225,7 @@ func parsePackageTarget(path string) (*packageTarget, error) {
 	return t, nil
 }
 
-// RewritePackage applies type replacements on a package in GOPATH, and saves results as a new package in $PWD.
+// RewritePackage applies type replacements on a package in $GOPATH, and saves results as a new package in $PWD.
 //
 // If there is a dir with the same name as newPkgPath, it will first be removed. It is possible to re-run this
 // to update a generic package.
