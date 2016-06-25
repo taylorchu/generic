@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"go/build"
 	"log"
 	"os"
 	"os/exec"
@@ -29,8 +29,10 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	if _, err := os.Stat(fmt.Sprintf("%s/src/%s", os.Getenv("GOPATH"), os.Args[1])); err != nil {
-		err := exec.Command("go", "get", "-u", os.Args[1]).Run()
+	if _, err := build.Import(os.Args[1], ".", build.FindOnly); err != nil {
+		cmd := exec.Command("go", "get", "-u", os.Args[1])
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
 		if err != nil {
 			log.Fatalln(err)
 		}

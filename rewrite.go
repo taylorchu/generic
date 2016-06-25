@@ -6,13 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"go/ast"
+	"go/build"
 	"go/format"
-	"go/importer"
 	"go/parser"
 	"go/printer"
 	"go/token"
 	"go/types"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -186,22 +185,15 @@ func rewriteTopLevelIdent(nodes map[string]*ast.File, prefix string, typeMap map
 
 // walkSource visits all .go files in a package path except tests.
 func walkSource(pkgPath string, sourceFunc func(string) error) error {
-	fi, err := ioutil.ReadDir(pkgPath)
+	pkg, err := build.Import(pkgPath, ".", 0)
 	if err != nil {
+		if _, ok := err.(*build.NoGoError); ok {
+			return nil
+		}
 		return err
 	}
-	for _, info := range fi {
-		if info.IsDir() {
-			continue
-		}
-		path := fmt.Sprintf("%s/%s", pkgPath, info.Name())
-		if !strings.HasSuffix(path, ".go") {
-			continue
-		}
-		if strings.HasSuffix(path, "_test.go") {
-			continue
-		}
-		err = sourceFunc(path)
+	for _, file := range pkg.GoFiles {
+		err = sourceFunc(fmt.Sprintf("%s/%s", pkg.Dir, file))
 		if err != nil {
 			return err
 		}
@@ -247,7 +239,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 
 	fset := token.NewFileSet()
 	files := make(map[string]*ast.File)
-	err = walkSource(fmt.Sprintf("%s/src/%s", os.Getenv("GOPATH"), pkgPath), func(path string) error {
+	err = walkSource(pkgPath, func(path string) error {
 		f, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
 			return err
@@ -315,7 +307,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 			return err
 		}
 	}
-	conf := types.Config{Importer: importer.Default()}
+	conf := types.Config{Importer: NewImporter()}
 	_, err = conf.Check("", fset, tc, nil)
 	if err != nil {
 		for _, f := range tc {

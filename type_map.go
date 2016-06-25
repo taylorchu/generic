@@ -11,7 +11,7 @@ type Target struct {
 	Import string
 }
 
-// ParseTypeMap parses type replacements.
+// ParseTypeMap parses raw strings to type replacements.
 func ParseTypeMap(args []string) (map[string]Target, error) {
 	typeMap := make(map[string]Target)
 
