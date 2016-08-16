@@ -2,10 +2,10 @@ package generic
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -45,7 +45,7 @@ func testRewritePackageWithInput(t *testing.T, pkgPath, newPkgPath string, typeM
 		t.Fatal(err)
 	}
 
-	assertEqualDir(t, ".", fmt.Sprintf("../%s", expect))
+	assertEqualDir(t, ".", filepath.Join("..", expect))
 }
 
 func copyDir(to, from string) error {
@@ -58,13 +58,13 @@ func copyDir(to, from string) error {
 			continue
 		}
 
-		tof, err := os.Create(fmt.Sprintf("%s/%s", to, info.Name()))
+		tof, err := os.Create(filepath.Join(to, info.Name()))
 		if err != nil {
 			return err
 		}
 		defer tof.Close()
 
-		fromf, err := os.Open(fmt.Sprintf("%s/%s", from, info.Name()))
+		fromf, err := os.Open(filepath.Join(from, info.Name()))
 		if err != nil {
 			return err
 		}
@@ -93,8 +93,8 @@ func assertEqualDir(t *testing.T, path1, path2 string) {
 	}
 
 	for _, info := range fi1 {
-		p1 := fmt.Sprintf("%s/%s", path1, info.Name())
-		p2 := fmt.Sprintf("%s/%s", path2, info.Name())
+		p1 := filepath.Join(path1, info.Name())
+		p2 := filepath.Join(path2, info.Name())
 		if info.IsDir() {
 			assertEqualDir(t, p1, p2)
 		} else {

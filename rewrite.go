@@ -193,7 +193,7 @@ func walkSource(pkgPath string, sourceFunc func(string) error) error {
 		return err
 	}
 	for _, file := range pkg.GoFiles {
-		err = sourceFunc(fmt.Sprintf("%s/%s", pkg.Dir, file))
+		err = sourceFunc(filepath.Join(pkg.Dir, file))
 		if err != nil {
 			return err
 		}
@@ -352,7 +352,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 	for path, f := range files {
 		// Print ast to file.
 		var dest *os.File
-		dest, err = os.Create(fmt.Sprintf("%s/%s", pt.NewPath, filepath.Base(path)))
+		dest, err = os.Create(filepath.Join(pt.NewPath, filepath.Base(path)))
 		if err != nil {
 			return err
 		}
