@@ -10,6 +10,7 @@ var (
 
 const (
 	X = 123
+	_ = 1
 )
 
 type Struct struct {

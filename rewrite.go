@@ -125,6 +125,10 @@ func findDecl(node *ast.File) (ret []ast.Decl) {
 // This prevents name conflicts when a package is rewritten to $PWD.
 func rewriteTopLevelIdent(nodes map[string]*ast.File, prefix string, typeMap map[string]Target) {
 	prefixIdent := func(name string) string {
+		if name == "_" {
+			// skip unnamed
+			return "_"
+		}
 		return lintName(fmt.Sprintf("%s_%s", prefix, name))
 	}
 

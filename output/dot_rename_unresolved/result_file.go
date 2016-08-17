@@ -10,6 +10,7 @@ var (
 
 const (
 	resultX = 123
+	_       = 1
 )
 
 type resultStruct struct {
