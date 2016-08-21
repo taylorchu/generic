@@ -62,6 +62,16 @@ func TestRewritePackageDotContainer(t *testing.T) {
 	)
 }
 
+func TestRewritePackageDotContainerUpdate(t *testing.T) {
+	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/container", ".result", map[string]Target{
+		"Type":          Target{Ident: "*Data"},
+		"TypeContainer": Target{Ident: "Box"},
+	},
+		"input/dot_container_update",
+		"output/dot_container",
+	)
+}
+
 func TestRewritePackageDotRenameUnresolved(t *testing.T) {
 	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/rename", ".result", map[string]Target{
 		"Type": Target{Ident: "Data"},

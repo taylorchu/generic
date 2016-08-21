@@ -288,12 +288,25 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		tc = append(tc, f)
 	}
 
+	outPath := func(path string) string {
+		if pt.SameDir {
+			return fmt.Sprintf("%s_%s", pt.NewPath, filepath.Base(path))
+		}
+		return filepath.Join(pt.NewPath, filepath.Base(path))
+	}
+
 	// Type-check.
 	if pt.SameDir {
 		// Also include same-dir files.
 		// However, it is silly to add the entire file,
 		// because that file might have identifiers from another generic package.
 		err = walkSource(".", func(path string) error {
+			for p := range files {
+				if outPath(p) == path {
+					// Allow updating existing generated files.
+					return nil
+				}
+			}
 			f, err := parser.ParseFile(fset, path, nil, 0)
 			if err != nil {
 				return err
@@ -320,11 +333,11 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		return err
 	}
 
-	if pt.SameDir {
+	writeOutput := func() error {
 		for path, f := range files {
 			// Print ast to file.
 			var dest *os.File
-			dest, err = os.Create(fmt.Sprintf("%s_%s", pt.NewPath, filepath.Base(path)))
+			dest, err = os.Create(outPath(path))
 			if err != nil {
 				return err
 			}
@@ -336,6 +349,10 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 			}
 		}
 		return nil
+	}
+
+	if pt.SameDir {
+		return writeOutput()
 	}
 
 	err = os.RemoveAll(pt.NewPath)
@@ -353,19 +370,5 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		}
 	}()
 
-	for path, f := range files {
-		// Print ast to file.
-		var dest *os.File
-		dest, err = os.Create(filepath.Join(pt.NewPath, filepath.Base(path)))
-		if err != nil {
-			return err
-		}
-		defer dest.Close()
-
-		err = format.Node(dest, fset, f)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return writeOutput()
 }
