@@ -226,7 +226,8 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 	fset := token.NewFileSet()
 	files := make(map[string]*ast.File)
 
-	buildP, err := build.Import(pkgPath, ".", 0)
+	// NOTE: this package that we try to rewrite from should not contain vendor/.
+	buildP, err := build.Import(pkgPath, "", 0)
 	if err != nil {
 		return err
 	}
