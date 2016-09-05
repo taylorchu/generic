@@ -2,9 +2,11 @@ package generic
 
 import (
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"go/types"
+	"path/filepath"
 )
 
 type importer struct {
@@ -16,13 +18,17 @@ type importer struct {
 // See https://github.com/golang/go/issues/11415.
 // Many applications use the gcimporter package to read type information from compiled object files.
 // There's no guarantee that those files are even remotely recent.
-func NewImporter() types.Importer {
+func NewImporter() types.ImporterFrom {
 	return &importer{
 		cache: make(map[string]*types.Package),
 	}
 }
 
 func (i *importer) Import(pkgPath string) (*types.Package, error) {
+	return i.ImportFrom(pkgPath, "", 0)
+}
+
+func (i *importer) ImportFrom(pkgPath string, srcDir string, _ types.ImportMode) (*types.Package, error) {
 	if pkgPath == "unsafe" {
 		return types.Unsafe, nil
 	}
@@ -31,18 +37,21 @@ func (i *importer) Import(pkgPath string) (*types.Package, error) {
 		return pkg, nil
 	}
 
-	fset := token.NewFileSet()
-	var files []*ast.File
-	err := walkSource(pkgPath, func(path string) error {
-		f, err := parser.ParseFile(fset, path, nil, 0)
-		if err != nil {
-			return err
-		}
-		files = append(files, f)
-		return nil
-	})
+	ctx := build.Default
+	ctx.CgoEnabled = false
+	buildP, err := ctx.Import(pkgPath, srcDir, 0)
 	if err != nil {
 		return nil, err
+	}
+
+	fset := token.NewFileSet()
+	var files []*ast.File
+	for _, file := range buildP.GoFiles {
+		f, err := parser.ParseFile(fset, filepath.Join(buildP.Dir, file), nil, 0)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, f)
 	}
 
 	conf := types.Config{

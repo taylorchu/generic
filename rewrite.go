@@ -187,24 +187,6 @@ func rewriteTopLevelIdent(nodes map[string]*ast.File, prefix string, typeMap map
 	}
 }
 
-// walkSource visits all .go files in a package path except tests.
-func walkSource(pkgPath string, sourceFunc func(string) error) error {
-	pkg, err := build.Import(pkgPath, ".", 0)
-	if err != nil {
-		if _, ok := err.(*build.NoGoError); ok {
-			return nil
-		}
-		return err
-	}
-	for _, file := range pkg.GoFiles {
-		err = sourceFunc(filepath.Join(pkg.Dir, file))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 type packageTarget struct {
 	SameDir bool
 	NewName string
@@ -243,16 +225,18 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 
 	fset := token.NewFileSet()
 	files := make(map[string]*ast.File)
-	err = walkSource(pkgPath, func(path string) error {
+
+	buildP, err := build.Import(pkgPath, ".", 0)
+	if err != nil {
+		return err
+	}
+	for _, file := range buildP.GoFiles {
+		path := filepath.Join(buildP.Dir, file)
 		f, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
 			return err
 		}
 		files[path] = f
-		return nil
-	})
-	if err != nil {
-		return err
 	}
 
 	// Gather ast.File to create ast.Package.
@@ -300,12 +284,25 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		// Also include same-dir files.
 		// However, it is silly to add the entire file,
 		// because that file might have identifiers from another generic package.
-		err = walkSource(".", func(path string) error {
+		buildP, err := build.Import(".", ".", 0)
+		if err != nil {
+			if _, ok := err.(*build.NoGoError); !ok {
+				return err
+			}
+		}
+		generated := func(path string) bool {
 			for p := range files {
 				if outPath(p) == path {
-					// Allow updating existing generated files.
-					return nil
+					return true
 				}
+			}
+			return false
+		}
+		for _, file := range buildP.GoFiles {
+			path := filepath.Join(buildP.Dir, file)
+			if generated(path) {
+				// Allow updating existing generated files.
+				continue
 			}
 			f, err := parser.ParseFile(fset, path, nil, 0)
 			if err != nil {
@@ -318,10 +315,6 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 					Name:  f.Name,
 				})
 			}
-			return nil
-		})
-		if err != nil {
-			return err
 		}
 	}
 	conf := types.Config{Importer: NewImporter()}

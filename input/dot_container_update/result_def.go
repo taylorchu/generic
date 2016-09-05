@@ -1,5 +1,5 @@
 package GOPACKAGE
 
-type Box struct {
-	Val *Data
+type Box_ struct {
+	Val *Data_
 }
