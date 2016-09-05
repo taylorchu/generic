@@ -38,7 +38,7 @@ func TestRewritePackageDotQueue(t *testing.T) {
 		"Type":      Target{Ident: "Data"},
 		"TypeQueue": Target{Ident: "FIFO"},
 	},
-		"input/dot_data",
+		"input/data",
 		"output/dot_queue",
 	)
 }
@@ -47,7 +47,7 @@ func TestRewritePackageDotQueuePrefix(t *testing.T) {
 	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/queue", ".result", map[string]Target{
 		"Type": Target{Ident: "Data"},
 	},
-		"input/dot_data",
+		"input/data",
 		"output/dot_queue_prefix",
 	)
 }
@@ -57,7 +57,7 @@ func TestRewritePackageDotContainer(t *testing.T) {
 		"Type":          Target{Ident: "*Data"},
 		"TypeContainer": Target{Ident: "Box"},
 	},
-		"input/dot_data",
+		"input/data",
 		"output/dot_container",
 	)
 }
@@ -67,7 +67,7 @@ func TestRewritePackageDotContainerUpdate(t *testing.T) {
 		"Type":          Target{Ident: "*Data"},
 		"TypeContainer": Target{Ident: "Box"},
 	},
-		"input/dot_container_update",
+		"input/container_updated",
 		"output/dot_container",
 	)
 }
@@ -76,7 +76,7 @@ func TestRewritePackageDotRenameUnresolved(t *testing.T) {
 	testRewritePackageWithInput(t, "github.com/taylorchu/generic/fixture/rename", ".result", map[string]Target{
 		"Type": Target{Ident: "Data"},
 	},
-		"input/dot_data_unresolved",
+		"input/data_unresolved",
 		"output/dot_rename_unresolved",
 	)
 }
