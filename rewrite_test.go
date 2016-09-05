@@ -8,6 +8,12 @@ func TestRewritePackage(t *testing.T) {
 	}, "output/basic")
 }
 
+func TestRewritePackageVendoring(t *testing.T) {
+	testRewritePackage(t, "github.com/taylorchu/generic/fixture/basic", "result", map[string]Target{
+		"Type": Target{Ident: "vendoring.Number", Import: "github.com/taylorchu/generic/fixture/vendoring"},
+	}, "output/vendoring")
+}
+
 func TestRewritePackageMethod(t *testing.T) {
 	testRewritePackage(t, "github.com/taylorchu/generic/fixture/method", "result", map[string]Target{
 		"Type2": Target{Ident: "generic.Target", Import: "github.com/taylorchu/generic"},
