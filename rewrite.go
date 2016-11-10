@@ -16,6 +16,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/taylorchu/generic/importer"
+
 	"golang.org/x/tools/go/ast/astutil"
 )
 
@@ -93,8 +95,8 @@ func removeTypeDecl(node *ast.File, typeMap map[string]Target) {
 	}
 }
 
-// findDecl finds type and related declarations.
-func findDecl(node *ast.File) (ret []ast.Decl) {
+// findTypeDecl finds type and related declarations.
+func findTypeDecl(node *ast.File) (ret []ast.Decl) {
 	for _, decl := range node.Decls {
 		genDecl, ok := decl.(*ast.GenDecl)
 		if !ok {
@@ -309,7 +311,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 			if err != nil {
 				return err
 			}
-			decl := findDecl(f)
+			decl := findTypeDecl(f)
 			if len(decl) > 0 {
 				tc = append(tc, &ast.File{
 					Decls: decl,
@@ -318,7 +320,7 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 			}
 		}
 	}
-	conf := types.Config{Importer: NewImporter()}
+	conf := types.Config{Importer: importer.New()}
 	_, err = conf.Check("", fset, tc, nil)
 	if err != nil {
 		for _, f := range tc {

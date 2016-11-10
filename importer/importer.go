@@ -1,4 +1,4 @@
-package generic
+package importer
 
 import (
 	"go/ast"
@@ -13,12 +13,12 @@ type importer struct {
 	cache map[string]*types.Package
 }
 
-// NewImporter creates a new types.Importer.
+// New creates a new types.Importer.
 //
 // See https://github.com/golang/go/issues/11415.
 // Many applications use the gcimporter package to read type information from compiled object files.
 // There's no guarantee that those files are even remotely recent.
-func NewImporter() types.ImporterFrom {
+func New() types.ImporterFrom {
 	return &importer{
 		cache: make(map[string]*types.Package),
 	}
