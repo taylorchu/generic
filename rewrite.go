@@ -27,57 +27,76 @@ func RewritePackage(ctx *Context) error {
 	fset := token.NewFileSet()
 	files := make(map[string]*ast.File)
 
-	// NOTE: this package that we try to rewrite from should not contain vendor/.
-	buildP, err := build.Import(ctx.FromPkgPath, "", 0)
-	if err != nil {
-		return err
-	}
-	for _, file := range buildP.GoFiles {
-		path := filepath.Join(buildP.Dir, file)
-		f, err := parser.ParseFile(fset, path, nil, 0)
-		if err != nil {
-			return err
-		}
-		files[path] = f
-	}
-
-	// Gather ast.File to create ast.Package.
-	// ast.NewPackage will try to resolve unresolved identifiers.
-	ast.NewPackage(fset, files, nil, nil)
-
 	// Apply AST changes and refresh.
-	for _, rewriteFunc := range []func(*Context, map[string]*ast.File, *token.FileSet){
+	for _, rewriteFunc := range []func(*Context, map[string]*ast.File, *token.FileSet) error{
+		parsePackage,
 		rewritePkgName,
 		removeTypeDecl,
 		rewriteIdent,
 		rewriteTopLevelIdent,
+		refreshAST,
+		typeCheck,
+		writePackage,
 	} {
-		rewriteFunc(ctx, files, fset)
+		err := rewriteFunc(ctx, files, fset)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writePackage(ctx *Context, files map[string]*ast.File, fset *token.FileSet) error {
+	writeOutput := func() error {
+		for path, f := range files {
+			// Print ast to file.
+			dest, err := os.Create(outPath(ctx, path))
+			if err != nil {
+				return err
+			}
+			defer dest.Close()
+
+			err = format.Node(dest, fset, f)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
-	// AST in dirty state; refresh
-	buf := new(bytes.Buffer)
+	if ctx.SameDir {
+		return writeOutput()
+	}
+
+	err := os.RemoveAll(ctx.PkgPath)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(ctx.PkgPath, 0777)
+	if err != nil {
+		return err
+	}
+	err = writeOutput()
+	if err != nil {
+		os.RemoveAll(ctx.PkgPath)
+		return err
+	}
+
+	return nil
+}
+
+func outPath(ctx *Context, path string) string {
+	if ctx.SameDir {
+		return fmt.Sprintf("%s_%s", ctx.PkgPath, filepath.Base(path))
+	}
+	return filepath.Join(ctx.PkgPath, filepath.Base(path))
+}
+
+func typeCheck(ctx *Context, files map[string]*ast.File, fset *token.FileSet) error {
 	var tc []*ast.File
-	for path, f := range files {
-		buf.Reset()
-		err = printer.Fprint(buf, fset, f)
-		if err != nil {
-			return err
-		}
-		f, err = parser.ParseFile(fset, "", buf, 0)
-		if err != nil {
-			printer.Fprint(os.Stderr, fset, f)
-			return err
-		}
-		files[path] = f
+	for _, f := range files {
 		tc = append(tc, f)
-	}
-
-	outPath := func(path string) string {
-		if ctx.SameDir {
-			return fmt.Sprintf("%s_%s", ctx.PkgPath, filepath.Base(path))
-		}
-		return filepath.Join(ctx.PkgPath, filepath.Base(path))
 	}
 
 	// Type-check.
@@ -93,7 +112,7 @@ func RewritePackage(ctx *Context) error {
 		}
 		generated := func(path string) bool {
 			for p := range files {
-				if outPath(p) == path {
+				if outPath(ctx, p) == path {
 					return true
 				}
 			}
@@ -119,7 +138,7 @@ func RewritePackage(ctx *Context) error {
 		}
 	}
 	conf := types.Config{Importer: importer.New()}
-	_, err = conf.Check("", fset, tc, nil)
+	_, err := conf.Check("", fset, tc, nil)
 	if err != nil {
 		for _, f := range tc {
 			printer.Fprint(os.Stderr, fset, f)
@@ -127,55 +146,59 @@ func RewritePackage(ctx *Context) error {
 		return err
 	}
 
-	writeOutput := func() error {
-		for path, f := range files {
-			// Print ast to file.
-			var dest *os.File
-			dest, err = os.Create(outPath(path))
-			if err != nil {
-				return err
-			}
-			defer dest.Close()
+	return nil
+}
 
-			err = format.Node(dest, fset, f)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	if ctx.SameDir {
-		return writeOutput()
-	}
-
-	err = os.RemoveAll(ctx.PkgPath)
+func parsePackage(ctx *Context, files map[string]*ast.File, fset *token.FileSet) error {
+	// NOTE: this package that we try to rewrite from should not contain vendor/.
+	buildP, err := build.Import(ctx.FromPkgPath, "", 0)
 	if err != nil {
 		return err
 	}
-
-	err = os.MkdirAll(ctx.PkgPath, 0777)
-	if err != nil {
-		return err
-	}
-	defer func() {
+	for _, file := range buildP.GoFiles {
+		path := filepath.Join(buildP.Dir, file)
+		f, err := parser.ParseFile(fset, path, nil, 0)
 		if err != nil {
-			os.RemoveAll(ctx.PkgPath)
+			return err
 		}
-	}()
+		files[path] = f
+	}
 
-	return writeOutput()
+	// Gather ast.File to create ast.Package.
+	// ast.NewPackage will try to resolve unresolved identifiers.
+	ast.NewPackage(fset, files, nil, nil)
+	return nil
+}
+
+func refreshAST(ctx *Context, files map[string]*ast.File, fset *token.FileSet) error {
+	// AST in dirty state; refresh
+	buf := new(bytes.Buffer)
+	for path, f := range files {
+		buf.Reset()
+		err := printer.Fprint(buf, fset, f)
+		if err != nil {
+			return err
+		}
+		f, err = parser.ParseFile(fset, "", buf, 0)
+		if err != nil {
+			printer.Fprint(os.Stderr, fset, f)
+			return err
+		}
+		files[path] = f
+	}
+	return nil
 }
 
 // rewritePkgName sets current package name.
-func rewritePkgName(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) {
+func rewritePkgName(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) error {
 	for _, node := range nodes {
 		node.Name.Name = ctx.PkgName
 	}
+	return nil
 }
 
 // rewriteIdent converts TypeXXX to its replacement defined in typeMap.
-func rewriteIdent(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) {
+func rewriteIdent(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) error {
 	for _, node := range nodes {
 		var used []string
 		ast.Inspect(node, func(n ast.Node) bool {
@@ -211,10 +234,11 @@ func rewriteIdent(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet)
 			astutil.AddImport(fset, node, im)
 		}
 	}
+	return nil
 }
 
 // removeTypeDecl removes type declarations defined in typeMap.
-func removeTypeDecl(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) {
+func removeTypeDecl(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) error {
 	for _, node := range nodes {
 		for i := len(node.Decls) - 1; i >= 0; i-- {
 			genDecl, ok := node.Decls[i].(*ast.GenDecl)
@@ -245,14 +269,15 @@ func removeTypeDecl(ctx *Context, nodes map[string]*ast.File, fset *token.FileSe
 			}
 		}
 	}
+	return nil
 }
 
 // rewriteTopLevelIdent adds a prefix to top-level identifiers and their uses.
 //
 // This prevents name conflicts when a package is rewritten to $PWD.
-func rewriteTopLevelIdent(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) {
+func rewriteTopLevelIdent(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) error {
 	if !ctx.SameDir {
-		return
+		return nil
 	}
 
 	prefixIdent := func(name string) string {
@@ -316,6 +341,7 @@ func rewriteTopLevelIdent(ctx *Context, nodes map[string]*ast.File, fset *token.
 			return true
 		})
 	}
+	return nil
 }
 
 // findTypeDecl finds type and related declarations.
