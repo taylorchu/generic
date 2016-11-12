@@ -38,7 +38,14 @@ func testRewritePackageWithInput(t *testing.T, pkgPath, newPkgPath string, typeM
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = RewritePackage(pkgPath, newPkgPath, typeMap)
+
+	ctx, err := NewContext(pkgPath, newPkgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx.TypeMap = typeMap
+
+	err = RewritePackage(ctx)
 	os.Chdir("..")
 	if err != nil {
 		t.Fatal(err)

@@ -3,7 +3,6 @@ package generic
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -14,222 +13,22 @@ import (
 	"go/types"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/taylorchu/generic/importer"
 
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-// rewritePkgName sets current package name.
-func rewritePkgName(node *ast.File, pkgName string) {
-	node.Name.Name = pkgName
-}
-
-// rewriteIdent converts TypeXXX to its replacement defined in typeMap.
-func rewriteIdent(node *ast.File, typeMap map[string]Target, fset *token.FileSet) {
-	var used []string
-	ast.Inspect(node, func(n ast.Node) bool {
-		switch x := n.(type) {
-		case *ast.Ident:
-			if x.Obj == nil || x.Obj.Kind != ast.Typ {
-				return false
-			}
-			to, ok := typeMap[x.Name]
-			if !ok {
-				return false
-			}
-			x.Name = to.Ident
-
-			if to.Import == "" {
-				return false
-			}
-			var found bool
-			for _, im := range used {
-				if im == to.Import {
-					found = true
-					break
-				}
-			}
-			if !found {
-				used = append(used, to.Import)
-			}
-			return false
-		}
-		return true
-	})
-	for _, im := range used {
-		astutil.AddImport(fset, node, im)
-	}
-}
-
-// removeTypeDecl removes type declarations defined in typeMap.
-func removeTypeDecl(node *ast.File, typeMap map[string]Target) {
-	for i := len(node.Decls) - 1; i >= 0; i-- {
-		genDecl, ok := node.Decls[i].(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		if genDecl.Tok != token.TYPE {
-			continue
-		}
-		var remove bool
-		for _, spec := range genDecl.Specs {
-			typeSpec := spec.(*ast.TypeSpec)
-
-			_, ok = typeMap[typeSpec.Name.Name]
-			if !ok {
-				continue
-			}
-
-			_, ok = typeSpec.Type.(*ast.Ident)
-			if !ok {
-				continue
-			}
-			remove = true
-			break
-		}
-		if remove {
-			node.Decls = append(node.Decls[:i], node.Decls[i+1:]...)
-		}
-	}
-}
-
-// findTypeDecl finds type and related declarations.
-func findTypeDecl(node *ast.File) (ret []ast.Decl) {
-	for _, decl := range node.Decls {
-		genDecl, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		if genDecl.Tok != token.TYPE {
-			continue
-		}
-
-		for _, spec := range genDecl.Specs {
-			typeSpec := spec.(*ast.TypeSpec)
-
-			// Replace a complex declaration with a dummy idenifier.
-			//
-			// It seems simpler to check whether a type is defined.
-			typeSpec.Type = &ast.Ident{
-				Name: "uint32",
-			}
-		}
-
-		ret = append(ret, decl)
-	}
-	return
-}
-
-// rewriteTopLevelIdent adds a prefix to top-level identifiers and their uses.
-//
-// This prevents name conflicts when a package is rewritten to $PWD.
-func rewriteTopLevelIdent(nodes map[string]*ast.File, prefix string, typeMap map[string]Target) {
-	prefixIdent := func(name string) string {
-		if name == "_" {
-			// skip unnamed
-			return "_"
-		}
-		return lintName(fmt.Sprintf("%s_%s", prefix, name))
-	}
-
-	declMap := make(map[interface{}]string)
-
-	for _, node := range nodes {
-		for _, decl := range node.Decls {
-			switch decl := decl.(type) {
-			case *ast.FuncDecl:
-				if decl.Recv != nil {
-					continue
-				}
-				decl.Name.Name = prefixIdent(decl.Name.Name)
-				declMap[decl] = decl.Name.Name
-			case *ast.GenDecl:
-				for _, spec := range decl.Specs {
-					switch spec := spec.(type) {
-					case *ast.TypeSpec:
-						obj := spec.Name.Obj
-						if obj != nil && obj.Kind == ast.Typ {
-							if to, ok := typeMap[obj.Name]; ok && spec.Name.Name == to.Ident {
-								// If this identifier is already rewritten before, we don't need to prefix it.
-								continue
-							}
-						}
-						spec.Name.Name = prefixIdent(spec.Name.Name)
-						declMap[spec] = spec.Name.Name
-					case *ast.ValueSpec:
-						for _, ident := range spec.Names {
-							ident.Name = prefixIdent(ident.Name)
-							declMap[spec] = ident.Name
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// After top-level identifiers are renamed, find where they are used, and rewrite those.
-	for _, node := range nodes {
-		ast.Inspect(node, func(n ast.Node) bool {
-			switch x := n.(type) {
-			case *ast.Ident:
-				if x.Obj == nil || x.Obj.Decl == nil {
-					return false
-				}
-				name, ok := declMap[x.Obj.Decl]
-				if !ok {
-					return false
-				}
-				x.Name = name
-				return false
-			}
-			return true
-		})
-	}
-}
-
-type packageTarget struct {
-	SameDir bool
-	NewName string
-	NewPath string
-}
-
-// parsePackageTarget finds where a package can be rewritten.
-func parsePackageTarget(path string) (*packageTarget, error) {
-	t := new(packageTarget)
-	if strings.HasPrefix(path, ".") {
-		t.SameDir = true
-		t.NewPath = strings.TrimPrefix(path, ".")
-		t.NewName = os.Getenv("GOPACKAGE")
-		if t.NewName == "" {
-			return nil, errors.New("GOPACKAGE cannot be empty")
-		}
-	} else {
-		t.NewPath = path
-		t.NewName = filepath.Base(path)
-	}
-
-	return t, nil
-}
-
 // RewritePackage applies type replacements on a package in $GOPATH, and saves results as a new package in $PWD.
 //
 // If there is a dir with the same name as newPkgPath, it will first be removed. It is possible to re-run this
 // to update a generic package.
-func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target) error {
-	var err error
-
-	pt, err := parsePackageTarget(newPkgPath)
-	if err != nil {
-		return err
-	}
-
+func RewritePackage(ctx *Context) error {
 	fset := token.NewFileSet()
 	files := make(map[string]*ast.File)
 
 	// NOTE: this package that we try to rewrite from should not contain vendor/.
-	buildP, err := build.Import(pkgPath, "", 0)
+	buildP, err := build.Import(ctx.FromPkgPath, "", 0)
 	if err != nil {
 		return err
 	}
@@ -247,14 +46,13 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 	ast.NewPackage(fset, files, nil, nil)
 
 	// Apply AST changes and refresh.
-	for _, f := range files {
-		rewritePkgName(f, pt.NewName)
-		removeTypeDecl(f, typeMap)
-		rewriteIdent(f, typeMap, fset)
-	}
-
-	if pt.SameDir {
-		rewriteTopLevelIdent(files, pt.NewPath, typeMap)
+	for _, rewriteFunc := range []func(*Context, map[string]*ast.File, *token.FileSet){
+		rewritePkgName,
+		removeTypeDecl,
+		rewriteIdent,
+		rewriteTopLevelIdent,
+	} {
+		rewriteFunc(ctx, files, fset)
 	}
 
 	// AST in dirty state; refresh
@@ -276,14 +74,14 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 	}
 
 	outPath := func(path string) string {
-		if pt.SameDir {
-			return fmt.Sprintf("%s_%s", pt.NewPath, filepath.Base(path))
+		if ctx.SameDir {
+			return fmt.Sprintf("%s_%s", ctx.PkgPath, filepath.Base(path))
 		}
-		return filepath.Join(pt.NewPath, filepath.Base(path))
+		return filepath.Join(ctx.PkgPath, filepath.Base(path))
 	}
 
 	// Type-check.
-	if pt.SameDir {
+	if ctx.SameDir {
 		// Also include same-dir files.
 		// However, it is silly to add the entire file,
 		// because that file might have identifiers from another generic package.
@@ -347,24 +145,202 @@ func RewritePackage(pkgPath string, newPkgPath string, typeMap map[string]Target
 		return nil
 	}
 
-	if pt.SameDir {
+	if ctx.SameDir {
 		return writeOutput()
 	}
 
-	err = os.RemoveAll(pt.NewPath)
+	err = os.RemoveAll(ctx.PkgPath)
 	if err != nil {
 		return err
 	}
 
-	err = os.MkdirAll(pt.NewPath, 0777)
+	err = os.MkdirAll(ctx.PkgPath, 0777)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
-			os.RemoveAll(pt.NewPath)
+			os.RemoveAll(ctx.PkgPath)
 		}
 	}()
 
 	return writeOutput()
+}
+
+// rewritePkgName sets current package name.
+func rewritePkgName(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) {
+	for _, node := range nodes {
+		node.Name.Name = ctx.PkgName
+	}
+}
+
+// rewriteIdent converts TypeXXX to its replacement defined in typeMap.
+func rewriteIdent(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) {
+	for _, node := range nodes {
+		var used []string
+		ast.Inspect(node, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.Ident:
+				if x.Obj == nil || x.Obj.Kind != ast.Typ {
+					return false
+				}
+				to, ok := ctx.TypeMap[x.Name]
+				if !ok {
+					return false
+				}
+				x.Name = to.Ident
+
+				if to.Import == "" {
+					return false
+				}
+				var found bool
+				for _, im := range used {
+					if im == to.Import {
+						found = true
+						break
+					}
+				}
+				if !found {
+					used = append(used, to.Import)
+				}
+				return false
+			}
+			return true
+		})
+		for _, im := range used {
+			astutil.AddImport(fset, node, im)
+		}
+	}
+}
+
+// removeTypeDecl removes type declarations defined in typeMap.
+func removeTypeDecl(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) {
+	for _, node := range nodes {
+		for i := len(node.Decls) - 1; i >= 0; i-- {
+			genDecl, ok := node.Decls[i].(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+			if genDecl.Tok != token.TYPE {
+				continue
+			}
+			var remove bool
+			for _, spec := range genDecl.Specs {
+				typeSpec := spec.(*ast.TypeSpec)
+
+				_, ok = ctx.TypeMap[typeSpec.Name.Name]
+				if !ok {
+					continue
+				}
+
+				_, ok = typeSpec.Type.(*ast.Ident)
+				if !ok {
+					continue
+				}
+				remove = true
+				break
+			}
+			if remove {
+				node.Decls = append(node.Decls[:i], node.Decls[i+1:]...)
+			}
+		}
+	}
+}
+
+// rewriteTopLevelIdent adds a prefix to top-level identifiers and their uses.
+//
+// This prevents name conflicts when a package is rewritten to $PWD.
+func rewriteTopLevelIdent(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) {
+	if !ctx.SameDir {
+		return
+	}
+
+	prefixIdent := func(name string) string {
+		if name == "_" {
+			// skip unnamed
+			return "_"
+		}
+		return lintName(fmt.Sprintf("%s_%s", ctx.PkgPath, name))
+	}
+
+	declMap := make(map[interface{}]string)
+
+	for _, node := range nodes {
+		for _, decl := range node.Decls {
+			switch decl := decl.(type) {
+			case *ast.FuncDecl:
+				if decl.Recv != nil {
+					continue
+				}
+				decl.Name.Name = prefixIdent(decl.Name.Name)
+				declMap[decl] = decl.Name.Name
+			case *ast.GenDecl:
+				for _, spec := range decl.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						obj := spec.Name.Obj
+						if obj != nil && obj.Kind == ast.Typ {
+							if to, ok := ctx.TypeMap[obj.Name]; ok && spec.Name.Name == to.Ident {
+								// If this identifier is already rewritten before, we don't need to prefix it.
+								continue
+							}
+						}
+						spec.Name.Name = prefixIdent(spec.Name.Name)
+						declMap[spec] = spec.Name.Name
+					case *ast.ValueSpec:
+						for _, ident := range spec.Names {
+							ident.Name = prefixIdent(ident.Name)
+							declMap[spec] = ident.Name
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// After top-level identifiers are renamed, find where they are used, and rewrite those.
+	for _, node := range nodes {
+		ast.Inspect(node, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.Ident:
+				if x.Obj == nil || x.Obj.Decl == nil {
+					return false
+				}
+				name, ok := declMap[x.Obj.Decl]
+				if !ok {
+					return false
+				}
+				x.Name = name
+				return false
+			}
+			return true
+		})
+	}
+}
+
+// findTypeDecl finds type and related declarations.
+func findTypeDecl(node *ast.File) (ret []ast.Decl) {
+	for _, decl := range node.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		if genDecl.Tok != token.TYPE {
+			continue
+		}
+
+		for _, spec := range genDecl.Specs {
+			typeSpec := spec.(*ast.TypeSpec)
+
+			// Replace a complex declaration with a dummy idenifier.
+			//
+			// It seems simpler to check whether a type is defined.
+			typeSpec.Type = &ast.Ident{
+				Name: "uint32",
+			}
+		}
+
+		ret = append(ret, decl)
+	}
+	return
 }

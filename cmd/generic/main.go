@@ -24,7 +24,7 @@ func main() {
 		log.Fatalln("DEST cannot be empty")
 	}
 
-	typeMap, err := generic.ParseTypeMap(os.Args[3:])
+	ctx, err := generic.NewContext(os.Args[1], os.Args[2], os.Args[3:]...)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -38,7 +38,7 @@ func main() {
 		}
 	}
 
-	err = generic.RewritePackage(os.Args[1], os.Args[2], typeMap)
+	err = generic.RewritePackage(ctx)
 	if err != nil {
 		log.Fatalln(err)
 	}
