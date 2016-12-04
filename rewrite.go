@@ -32,7 +32,7 @@ func RewritePackage(ctx *Context) error {
 	for _, rewriteFunc := range []func(*Context, map[string]*ast.File, *token.FileSet) error{
 		parsePackage,
 		rewritePkgName,
-		removeTypeDecl,
+		removePlaceholder,
 		rewriteIdent,
 		rewriteTopLevelIdent,
 		refreshAST,
@@ -65,7 +65,7 @@ func writePackage(ctx *Context, files map[string]*ast.File, fset *token.FileSet)
 		return nil
 	}
 
-	if ctx.SameDir {
+	if ctx.Local {
 		return writeOutput()
 	}
 
@@ -88,10 +88,41 @@ func writePackage(ctx *Context, files map[string]*ast.File, fset *token.FileSet)
 }
 
 func outPath(ctx *Context, path string) string {
-	if ctx.SameDir {
+	if ctx.Local {
 		return fmt.Sprintf("%s_%s", ctx.PkgPath, filepath.Base(path))
 	}
 	return filepath.Join(ctx.PkgPath, filepath.Base(path))
+}
+
+func localGoFiles(ctx *Context, files map[string]*ast.File, fset *token.FileSet) ([]*ast.File, error) {
+	buildP, err := build.Import(".", ".", 0)
+	if err != nil {
+		if _, ok := err.(*build.NoGoError); !ok {
+			return nil, err
+		}
+	}
+	generated := func(path string) bool {
+		for p := range files {
+			if outPath(ctx, p) == path {
+				return true
+			}
+		}
+		return false
+	}
+	var localFiles []*ast.File
+	for _, file := range buildP.GoFiles {
+		path := filepath.Join(buildP.Dir, file)
+		if generated(path) {
+			// Allow updating existing generated files.
+			continue
+		}
+		f, err := parser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			return nil, err
+		}
+		localFiles = append(localFiles, f)
+	}
+	return localFiles, nil
 }
 
 func typeCheck(ctx *Context, files map[string]*ast.File, fset *token.FileSet) error {
@@ -100,37 +131,15 @@ func typeCheck(ctx *Context, files map[string]*ast.File, fset *token.FileSet) er
 		allFiles = append(allFiles, f)
 	}
 
-	// Type-check.
-	if ctx.SameDir {
+	if ctx.Local {
 		// Also include same-dir files.
 		// However, it is silly to add the entire file,
 		// because that file might have identifiers from another generic package.
-		buildP, err := build.Import(".", ".", 0)
+		localFiles, err := localGoFiles(ctx, files, fset)
 		if err != nil {
-			if _, ok := err.(*build.NoGoError); !ok {
-				return err
-			}
+			return err
 		}
-		generated := func(path string) bool {
-			for p := range files {
-				if outPath(ctx, p) == path {
-					return true
-				}
-			}
-			return false
-		}
-		for _, file := range buildP.GoFiles {
-			path := filepath.Join(buildP.Dir, file)
-			if generated(path) {
-				// Allow updating existing generated files.
-				continue
-			}
-			f, err := parser.ParseFile(fset, path, nil, 0)
-			if err != nil {
-				return err
-			}
-			allFiles = append(allFiles, f)
-		}
+		allFiles = append(allFiles, localFiles...)
 	}
 
 	var errType []error
@@ -244,32 +253,60 @@ func rewriteIdent(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet)
 	return nil
 }
 
-// removeTypeDecl removes type declarations defined in typeMap.
-func removeTypeDecl(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) error {
-	for _, node := range nodes {
+// removePlaceholder removes type declarations defined in typeMap.
+func removePlaceholder(ctx *Context, files map[string]*ast.File, fset *token.FileSet) error {
+	declMap := make(map[interface{}]struct{})
+	for _, node := range files {
 		for i := len(node.Decls) - 1; i >= 0; i-- {
-			genDecl, ok := node.Decls[i].(*ast.GenDecl)
-			if !ok {
-				continue
-			}
-			if genDecl.Tok != token.TYPE {
-				continue
-			}
 			var remove bool
-			for _, spec := range genDecl.Specs {
-				typeSpec := spec.(*ast.TypeSpec)
-
-				_, ok = ctx.TypeMap[typeSpec.Name.Name]
-				if !ok {
+			switch decl := node.Decls[i].(type) {
+			case *ast.GenDecl:
+				for _, spec := range decl.Specs {
+					switch spec := spec.(type) {
+					case *ast.TypeSpec:
+						_, ok := ctx.TypeMap[spec.Name.Name]
+						if !ok {
+							continue
+						}
+						_, ok = spec.Type.(*ast.Ident)
+						if !ok {
+							continue
+						}
+						remove = true
+						declMap[spec] = struct{}{}
+					}
+				}
+			}
+			if remove {
+				node.Decls = append(node.Decls[:i], node.Decls[i+1:]...)
+			}
+		}
+	}
+	// If a type placeholder is removed, its linked methods should be removed too.
+	// This works like go interface because now the replaced types need to implement these methods.
+	for _, node := range files {
+		for i := len(node.Decls) - 1; i >= 0; i-- {
+			var remove bool
+			switch decl := node.Decls[i].(type) {
+			case *ast.FuncDecl:
+				if decl.Recv == nil {
 					continue
 				}
-
-				_, ok = typeSpec.Type.(*ast.Ident)
+				var obj *ast.Object
+				switch expr := decl.Recv.List[0].Type.(type) {
+				case *ast.StarExpr:
+					obj = expr.X.(*ast.Ident).Obj
+				case *ast.Ident:
+					obj = expr.Obj
+				}
+				if obj == nil || obj.Decl == nil {
+					continue
+				}
+				_, ok := declMap[obj.Decl]
 				if !ok {
 					continue
 				}
 				remove = true
-				break
 			}
 			if remove {
 				node.Decls = append(node.Decls[:i], node.Decls[i+1:]...)
@@ -283,7 +320,7 @@ func removeTypeDecl(ctx *Context, nodes map[string]*ast.File, fset *token.FileSe
 //
 // This prevents name conflicts when a package is rewritten to $PWD.
 func rewriteTopLevelIdent(ctx *Context, nodes map[string]*ast.File, fset *token.FileSet) error {
-	if !ctx.SameDir {
+	if !ctx.Local {
 		return nil
 	}
 

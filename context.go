@@ -12,7 +12,7 @@ type Context struct {
 	FromPkgPath string
 	PkgPath     string
 	PkgName     string
-	SameDir     bool
+	Local       bool
 	TypeMap     map[string]Target
 }
 
@@ -22,7 +22,7 @@ func NewContext(pkgPath, newPkgPath string, rules ...string) (*Context, error) {
 		FromPkgPath: pkgPath,
 	}
 	if strings.HasPrefix(newPkgPath, ".") {
-		ctx.SameDir = true
+		ctx.Local = true
 		ctx.PkgPath = strings.TrimPrefix(newPkgPath, ".")
 		ctx.PkgName = os.Getenv("GOPACKAGE")
 		if ctx.PkgName == "" {

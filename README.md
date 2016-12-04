@@ -145,7 +145,7 @@ See [Internal packages](https://golang.org/doc/go1.4#internalpackages).
 `generic` does the followings if you put the following comments in your go code:
 
 ```go
-// THINK: generate from a generic package and save result as a new package,
+// generate from a generic package and save result as a new package,
 // with a list of rewrite rules!
 
 //go:generate generic github.com/go/sort int Type->int
@@ -155,10 +155,11 @@ See [Internal packages](https://golang.org/doc/go1.4#internalpackages).
   - If the package exists locally, go-get will not be called.
 2. Gather `.go` files (skip `_test.go`) in github.com/go/sort
 3. Apply AST rewrite to replace Type in those `.go` files to `int`.
-  - Only type that starts with __Type__ can be converted. This enables variable naming like __TypeKey__ or __TypeValue__
+  - Only type that starts with __Type__ and is [non-composite](https://golang.org/ref/spec#Types) can be converted. This enables variable naming like __TypeKey__ or __TypeValue__
   that closely expresses meaning while there is still a namespace for type placeholder.
   - Many rewrite rules are possible: `TypeKey->string TypeValue->int`.
   - We can rewrite non-builtin types with `:`: `Type->github.com/go/types:types.Box`.
+  - If a type placeholder has methods defined, the replaced type will need to implement those methods.
 4. Type-check results.
 5. Save the results as a new package called `int` in `$PWD`.
   - If there is already a dir called `int`, it will first be removed.
