@@ -13,6 +13,7 @@ import (
 	"go/types"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/taylorchu/generic/importer"
 
@@ -94,9 +95,9 @@ func outPath(ctx *Context, path string) string {
 }
 
 func typeCheck(ctx *Context, files map[string]*ast.File, fset *token.FileSet) error {
-	var tc []*ast.File
+	var allFiles []*ast.File
 	for _, f := range files {
-		tc = append(tc, f)
+		allFiles = append(allFiles, f)
 	}
 
 	// Type-check.
@@ -128,22 +129,28 @@ func typeCheck(ctx *Context, files map[string]*ast.File, fset *token.FileSet) er
 			if err != nil {
 				return err
 			}
-			decl := findTypeDecl(f)
-			if len(decl) > 0 {
-				tc = append(tc, &ast.File{
-					Decls: decl,
-					Name:  f.Name,
-				})
-			}
+			allFiles = append(allFiles, f)
 		}
 	}
-	conf := types.Config{Importer: importer.New()}
-	_, err := conf.Check("", fset, tc, nil)
-	if err != nil {
-		for _, f := range tc {
+
+	var errType []error
+	conf := types.Config{
+		Importer: importer.New(),
+		Error: func(err error) {
+			// Ignore undeclared name error because we want developers to use this tool
+			// during development process.
+			if strings.HasPrefix(err.(types.Error).Msg, "undeclared name: ") {
+				return
+			}
+			errType = append(errType, err)
+		},
+	}
+	conf.Check("", fset, allFiles, nil)
+	if len(errType) > 0 {
+		for _, f := range allFiles {
 			printer.Fprint(os.Stderr, fset, f)
 		}
-		return err
+		return errType[0]
 	}
 
 	return nil
@@ -342,31 +349,4 @@ func rewriteTopLevelIdent(ctx *Context, nodes map[string]*ast.File, fset *token.
 		})
 	}
 	return nil
-}
-
-// findTypeDecl finds type and related declarations.
-func findTypeDecl(node *ast.File) (ret []ast.Decl) {
-	for _, decl := range node.Decls {
-		genDecl, ok := decl.(*ast.GenDecl)
-		if !ok {
-			continue
-		}
-		if genDecl.Tok != token.TYPE {
-			continue
-		}
-
-		for _, spec := range genDecl.Specs {
-			typeSpec := spec.(*ast.TypeSpec)
-
-			// Replace a complex declaration with a dummy idenifier.
-			//
-			// It seems simpler to check whether a type is defined.
-			typeSpec.Type = &ast.Ident{
-				Name: "uint32",
-			}
-		}
-
-		ret = append(ret, decl)
-	}
-	return
 }
