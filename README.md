@@ -1,6 +1,6 @@
 # Generic, a code generation tool to enable generics in go.
 
-`go install github.com/taylorchu/generic/cmd/generic`
+`go get github.com/taylorchu/generic/cmd/generic`
 
 This is an experiment to enable generics with code generation in the most elegant way.
 
