@@ -27,7 +27,7 @@ func ParseTypeMap(args []string) (map[string]rewrite.Type, error) {
 			return nil, errors.New("REPL type must start with `Type`")
 		}
 
-		var t Target
+		var t rewrite.Type
 		if strings.Contains(to, ":") {
 			toPart := strings.Split(to, ":")
 
