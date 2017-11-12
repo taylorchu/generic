@@ -1,0 +1,10 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.9
+    working_directory: /go/src/github.com/taylorchu/generic
+    steps:
+      - checkout
+      - run: go get -v -t -d ./rewrite/ ./cmd/...
+      - run: go test -v ./rewrite/ ./cmd/...
