@@ -1,12 +1,12 @@
 package rewrite
 
 type Type struct {
-	Ident  string
-	Import string
+	Expr   string
+	Import []string
 }
 
 type Spec struct {
-	TypeMap map[string]Type
+	TypeMap map[string]Type `yaml:"typeMap"`
 
 	Name   string
 	Import string

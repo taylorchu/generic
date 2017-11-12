@@ -8,7 +8,7 @@ func TestRewritePackage(t *testing.T) {
 			Name:   "result",
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/basic",
 			TypeMap: map[string]Type{
-				"Type": Type{Ident: "int64"},
+				"Type": Type{Expr: "int64"},
 			},
 		},
 	}}
@@ -21,7 +21,7 @@ func TestRewritePackageVendoring(t *testing.T) {
 			Name:   "result",
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/basic",
 			TypeMap: map[string]Type{
-				"Type": Type{Ident: "vendoring.Number", Import: "github.com/taylorchu/generic/rewrite/test/pkg/vendoring"},
+				"Type": Type{Expr: "vendoring.Number", Import: []string{"github.com/taylorchu/generic/rewrite/test/pkg/vendoring"}},
 			},
 		},
 	}}
@@ -34,7 +34,7 @@ func TestRewritePackageMethod(t *testing.T) {
 			Name:   "result",
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/method",
 			TypeMap: map[string]Type{
-				"Type2": Type{Ident: "vendoring.Number", Import: "github.com/taylorchu/generic/rewrite/test/pkg/vendoring"},
+				"Type2": Type{Expr: "vendoring.Number", Import: []string{"github.com/taylorchu/generic/rewrite/test/pkg/vendoring"}},
 			},
 		},
 	}}
@@ -47,7 +47,7 @@ func TestRewritePackageInternal(t *testing.T) {
 			Name:   "internal/result",
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/basic",
 			TypeMap: map[string]Type{
-				"Type": Type{Ident: "int64"},
+				"Type": Type{Expr: "int64"},
 			},
 		},
 	}}
@@ -61,7 +61,7 @@ func TestRewritePackageRenameLocal(t *testing.T) {
 			Local:  true,
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/rename",
 			TypeMap: map[string]Type{
-				"Type": Type{Ident: "int64"},
+				"Type": Type{Expr: "int64"},
 			},
 		},
 	}}
@@ -74,8 +74,8 @@ func TestRewritePackageQueue(t *testing.T) {
 			Name:   "result",
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/queue",
 			TypeMap: map[string]Type{
-				"Type":      Type{Ident: "int64"},
-				"TypeQueue": Type{Ident: "FIFO"},
+				"Type":      Type{Expr: "int64"},
+				"TypeQueue": Type{Expr: "FIFO"},
 			},
 		},
 	}}
@@ -89,8 +89,8 @@ func TestRewritePackageQueueLocal(t *testing.T) {
 			Local:  true,
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/queue",
 			TypeMap: map[string]Type{
-				"Type":      Type{Ident: "Data"},
-				"TypeQueue": Type{Ident: "FIFO"},
+				"Type":      Type{Expr: "Data"},
+				"TypeQueue": Type{Expr: "FIFO"},
 			},
 		},
 	}}
@@ -104,7 +104,7 @@ func TestRewritePackageQueuePrefixLocal(t *testing.T) {
 			Local:  true,
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/queue",
 			TypeMap: map[string]Type{
-				"Type": Type{Ident: "Data"},
+				"Type": Type{Expr: "Data"},
 			},
 		},
 	}}
@@ -118,8 +118,8 @@ func TestRewritePackageContainerLocal(t *testing.T) {
 			Local:  true,
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/container",
 			TypeMap: map[string]Type{
-				"Type":          Type{Ident: "*Data"},
-				"TypeContainer": Type{Ident: "Box"},
+				"Type":          Type{Expr: "*Data"},
+				"TypeContainer": Type{Expr: "Box"},
 			},
 		},
 	}}
@@ -133,8 +133,8 @@ func TestRewritePackageContainerLocalUpdate(t *testing.T) {
 			Local:  true,
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/container",
 			TypeMap: map[string]Type{
-				"Type":          Type{Ident: "*Data"},
-				"TypeContainer": Type{Ident: "Box"},
+				"Type":          Type{Expr: "*Data"},
+				"TypeContainer": Type{Expr: "Box"},
 			},
 		},
 	}}
@@ -148,7 +148,7 @@ func TestRewritePackageRenameUnresolvedLocal(t *testing.T) {
 			Local:  true,
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/rename",
 			TypeMap: map[string]Type{
-				"Type": Type{Ident: "Data"},
+				"Type": Type{Expr: "Data"},
 			},
 		},
 	}}

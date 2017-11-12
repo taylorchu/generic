@@ -38,7 +38,7 @@ func (s *Spec) rewriteTopLevelIdent(pkg *Package) error {
 					case *ast.TypeSpec:
 						obj := spec.Name.Obj
 						if obj != nil && obj.Kind == ast.Typ {
-							if to, ok := s.TypeMap[obj.Name]; ok && spec.Name.Name == to.Ident {
+							if to, ok := s.TypeMap[obj.Name]; ok && spec.Name.Name == to.Expr {
 								// If this identifier is already rewritten before, we don't need to prefix it.
 								continue
 							}

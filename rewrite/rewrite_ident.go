@@ -20,20 +20,22 @@ func (s *Spec) rewriteIdent(pkg *Package) error {
 				if !ok {
 					return false
 				}
-				x.Name = to.Ident
+				x.Name = to.Expr
 
-				if to.Import == "" {
+				if len(to.Import) == 0 {
 					return false
 				}
-				var found bool
-				for _, im := range used {
-					if im == to.Import {
-						found = true
-						break
+				for _, im := range to.Import {
+					var found bool
+					for _, prev := range used {
+						if im == prev {
+							found = true
+							break
+						}
 					}
-				}
-				if !found {
-					used = append(used, to.Import)
+					if !found {
+						used = append(used, im)
+					}
 				}
 				return false
 			}

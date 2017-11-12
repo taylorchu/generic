@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	b, err := ioutil.ReadFile("RewriteFile")
+	b, err := ioutil.ReadFile("GoRewrite.yaml")
 	if err != nil {
 		log.Fatalln(err)
 	}

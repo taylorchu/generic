@@ -3,12 +3,14 @@ package main
 import (
 	"reflect"
 	"testing"
+
+	"github.com/taylorchu/generic/rewrite"
 )
 
 func TestParseTypeMap(t *testing.T) {
 	for _, test := range []struct {
 		in   string
-		want map[string]Target
+		want map[string]rewrite.Type
 	}{
 		{
 			in: "",
@@ -21,9 +23,9 @@ func TestParseTypeMap(t *testing.T) {
 		},
 		{
 			in: " Type  -> OtherType   ",
-			want: map[string]Target{
-				"Type": Target{
-					Ident: "OtherType",
+			want: map[string]rewrite.Type{
+				"Type": {
+					Expr: "OtherType",
 				},
 			},
 		},
@@ -35,10 +37,10 @@ func TestParseTypeMap(t *testing.T) {
 		},
 		{
 			in: "Type->  github.com/go :  go.OtherType ",
-			want: map[string]Target{
-				"Type": Target{
-					Import: "github.com/go",
-					Ident:  "go.OtherType",
+			want: map[string]rewrite.Type{
+				"Type": {
+					Import: []string{"github.com/go"},
+					Expr:   "go.OtherType",
 				},
 			},
 		},

@@ -35,18 +35,18 @@ func ParseTypeMap(args []string) (map[string]rewrite.Type, error) {
 				return nil, errors.New("REPL type must be in form of DESTPATH:OtherType")
 			}
 
-			t.Import = strings.TrimSpace(toPart[0])
-			t.Ident = strings.TrimSpace(toPart[1])
-			if strings.Count(t.Ident, ".") != 1 {
+			t.Import = []string{strings.TrimSpace(toPart[0])}
+			t.Expr = strings.TrimSpace(toPart[1])
+			if strings.Count(t.Expr, ".") != 1 {
 				return nil, errors.New("REPL type must contain one `.`")
 			}
 		} else {
-			t.Ident = to
-			if strings.Count(t.Ident, ".") != 0 {
+			t.Expr = to
+			if strings.Count(t.Expr, ".") != 0 {
 				return nil, errors.New("REPL type must not contain `.`")
 			}
 		}
-		if t.Ident == "" {
+		if t.Expr == "" {
 			return nil, errors.New("REPL type cannot be empty")
 		}
 

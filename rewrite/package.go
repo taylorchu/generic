@@ -3,8 +3,8 @@ package rewrite
 import (
 	"bytes"
 	"go/ast"
-	"go/format"
 	"go/parser"
+	"go/printer"
 	"go/token"
 	"os"
 )
@@ -19,13 +19,13 @@ func (p *Package) Reset() error {
 	buf := new(bytes.Buffer)
 	for name, f := range p.Files {
 		buf.Reset()
-		err := format.Node(buf, p.FileSet, f)
+		err := printer.Fprint(buf, p.FileSet, f)
 		if err != nil {
 			return err
 		}
 		parsed, err := parser.ParseFile(p.FileSet, "", buf, 0)
 		if err != nil {
-			format.Node(os.Stderr, p.FileSet, f)
+			printer.Fprint(os.Stderr, p.FileSet, f)
 			return err
 		}
 		p.Files[name] = parsed
