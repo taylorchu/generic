@@ -1,5 +1,7 @@
 # Generic, a code generation tool to enable generics in go
 
+[![CircleCI](https://circleci.com/gh/taylorchu/generic.svg?style=svg)](https://circleci.com/gh/taylorchu/generic)
+
 __v2__ `go get -u github.com/taylorchu/generic/cmd/gorewrite`
 
 __v1__ _(deprecated)_ `go get -u github.com/taylorhuc/generic/cmd/generic`
