@@ -1,4 +1,4 @@
-# Generic, a code generation tool to enable generics in go.
+# Generic, a code generation tool to enable generics in go
 
 __v2__ `go install github.com/taylorchu/generic/cmd/gorewrite`
 
