@@ -1,6 +1,6 @@
 package result
 
-import "github.com/taylorchu/generic/test/pkg/vendoring"
+import "github.com/taylorchu/generic/rewrite/test/pkg/vendoring"
 
 type Struct struct{ Val vendoring.Number }
 

@@ -1,20 +1,20 @@
-package generic
+package rewrite
 
 import (
-	"bytes"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/pmezard/go-difflib/difflib"
 )
 
-func testRewritePackage(t *testing.T, pkgPath, newPkgPath string, typeMap map[string]Target, expect string) {
-	testRewritePackageWithInput(t, pkgPath, newPkgPath, typeMap, "", expect)
+func testRewritePackage(t *testing.T, c *Config, expect string) {
+	testRewritePackageWithInput(t, c, "", expect)
 }
 
-func testRewritePackageWithInput(t *testing.T, pkgPath, newPkgPath string, typeMap map[string]Target, input, expect string) {
+func testRewritePackageWithInput(t *testing.T, c *Config, input, expect string) {
 	const dirname = "tmp"
 	err := os.MkdirAll(dirname, 0777)
 	if err != nil {
@@ -29,29 +29,20 @@ func testRewritePackageWithInput(t *testing.T, pkgPath, newPkgPath string, typeM
 		}
 	}
 
-	if strings.HasPrefix(newPkgPath, ".") {
-		os.Setenv("GOPACKAGE", "GOPACKAGE")
-		defer os.Unsetenv("GOPACKAGE")
-	}
+	os.Setenv("GOPACKAGE", "GOPACKAGE")
 
 	err = os.Chdir(dirname)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ctx, err := NewContext(pkgPath, newPkgPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx.TypeMap = typeMap
-
-	err = RewritePackage(ctx)
+	err = c.RewritePackage()
 	os.Chdir("..")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assertEqualDir(t, dirname, expect)
+	assertEqualDir(t, expect, dirname)
 }
 
 func copyDir(to, from string) error {
@@ -85,7 +76,6 @@ func copyDir(to, from string) error {
 }
 
 func assertEqualDir(t *testing.T, path1, path2 string) {
-	t.Log(path1, path2)
 	fi1, err := ioutil.ReadDir(path1)
 	if err != nil {
 		t.Fatal(err)
@@ -112,8 +102,16 @@ func assertEqualDir(t *testing.T, path1, path2 string) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.Equal(b1, b2) {
-				t.Fatalf("\n%s:\n\n%s\n%s:\n\n%s\n", p1, b1, p2, b2)
+			diff := difflib.UnifiedDiff{
+				A:        difflib.SplitLines(string(b1)),
+				B:        difflib.SplitLines(string(b2)),
+				FromFile: "Expect",
+				ToFile:   "Got",
+				Context:  3,
+			}
+			text, _ := difflib.GetUnifiedDiffString(diff)
+			if text != "" {
+				t.Fatalf("\n%s", text)
 			}
 		}
 	}

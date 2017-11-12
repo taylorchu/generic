@@ -6,6 +6,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"os"
 )
 
 type Package struct {
@@ -24,6 +25,7 @@ func (p *Package) Reset() error {
 		}
 		parsed, err := parser.ParseFile(p.FileSet, "", buf, 0)
 		if err != nil {
+			format.Node(os.Stderr, p.FileSet, f)
 			return err
 		}
 		p.Files[name] = parsed

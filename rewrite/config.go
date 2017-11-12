@@ -8,10 +8,9 @@ type Type struct {
 type Spec struct {
 	TypeMap map[string]Type
 
-	Name    string
-	Package string
-	Import  string
-	Local   bool
+	Name   string
+	Import string
+	Local  bool
 }
 
 type Config struct {
