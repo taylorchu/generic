@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-
-	"github.com/taylorchu/generic"
 )
 
 func main() {
@@ -24,7 +22,7 @@ func main() {
 		log.Fatalln("DEST cannot be empty")
 	}
 
-	ctx, err := generic.NewContext(os.Args[1], os.Args[2], os.Args[3:]...)
+	c, err := NewConfig(os.Args[1], os.Args[2], os.Args[3:]...)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -38,7 +36,7 @@ func main() {
 		}
 	}
 
-	err = generic.RewritePackage(ctx)
+	err = c.RewritePackage()
 	if err != nil {
 		log.Fatalln(err)
 	}

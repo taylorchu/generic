@@ -20,7 +20,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	err = rewrite.PackageWithConfig(&c)
+	err = c.RewritePackage()
 	if err != nil {
 		log.Fatalln(err)
 	}
