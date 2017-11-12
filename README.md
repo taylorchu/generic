@@ -1,8 +1,8 @@
 # Generic, a code generation tool to enable generics in go
 
-__v2__ `go install github.com/taylorchu/generic/cmd/gorewrite`
+__v2__ `go get -u github.com/taylorchu/generic/cmd/gorewrite`
 
-__v1__ _(deprecated)_ `go install github.com/taylorhuc/generic/cmd/generic`
+__v1__ _(deprecated)_ `go get -u github.com/taylorhuc/generic/cmd/generic`
 
 This is an experiment to enable generics with code generation in the most elegant way.
 
