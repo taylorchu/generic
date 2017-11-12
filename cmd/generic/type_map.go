@@ -3,17 +3,13 @@ package main
 import (
 	"errors"
 	"strings"
+
+	"github.com/taylorchu/generic/rewrite"
 )
 
-// Target represents replacement output.
-type Target struct {
-	Ident  string
-	Import string
-}
-
 // ParseTypeMap parses raw strings to type replacements.
-func ParseTypeMap(args []string) (map[string]Target, error) {
-	typeMap := make(map[string]Target)
+func ParseTypeMap(args []string) (map[string]rewrite.Type, error) {
+	typeMap := make(map[string]rewrite.Type)
 
 	for _, arg := range args {
 		part := strings.Split(arg, "->")
