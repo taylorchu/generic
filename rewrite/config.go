@@ -32,7 +32,7 @@ func (c *Config) RewritePackage() error {
 			s.rewritePackageName,
 			s.removePlaceholder,
 			s.rewriteIdent,
-			s.rewriteTopLevelIdent,
+			s.prefixTopLevelDecl,
 			resetAST,
 			s.typeCheck,
 			s.writePackage,

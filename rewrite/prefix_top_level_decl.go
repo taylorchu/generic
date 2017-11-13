@@ -5,10 +5,10 @@ import (
 	"go/ast"
 )
 
-// rewriteTopLevelIdent adds a prefix to top-level identifiers and their uses.
+// prefixTopLevelDecl adds a prefix to top-level identifiers and their uses.
 //
 // This prevents name conflicts when a package is rewritten to $PWD.
-func (s *Spec) rewriteTopLevelIdent(pkg *Package) error {
+func (s *Spec) prefixTopLevelDecl(pkg *Package) error {
 	if !s.Local {
 		return nil
 	}
