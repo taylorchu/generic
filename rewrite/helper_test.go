@@ -1,6 +1,7 @@
 package rewrite
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -84,8 +85,24 @@ func assertEqualDir(t *testing.T, path1, path2 string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(fi1) != len(fi2) {
-		t.Fatalf("%s: %d, %s: %d", path1, len(fi1), path2, len(fi2))
+	var fn1, fn2 []string
+	for _, info := range fi1 {
+		fn1 = append(fn1, fmt.Sprintf("%s\n", info.Name()))
+	}
+	for _, info := range fi2 {
+		fn2 = append(fn2, fmt.Sprintf("%s\n", info.Name()))
+	}
+
+	diff := difflib.UnifiedDiff{
+		A:        fn1,
+		B:        fn2,
+		FromFile: fmt.Sprintf("Expect %s", path1),
+		ToFile:   fmt.Sprintf("Got %s", path2),
+		Context:  3,
+	}
+	text, _ := difflib.GetUnifiedDiffString(diff)
+	if text != "" {
+		t.Fatalf("DIR\n%s", text)
 	}
 
 	for _, info := range fi1 {
@@ -105,13 +122,13 @@ func assertEqualDir(t *testing.T, path1, path2 string) {
 			diff := difflib.UnifiedDiff{
 				A:        difflib.SplitLines(string(b1)),
 				B:        difflib.SplitLines(string(b2)),
-				FromFile: "Expect",
-				ToFile:   "Got",
+				FromFile: fmt.Sprintf("Expect %s", p1),
+				ToFile:   fmt.Sprintf("Got %s", p2),
 				Context:  3,
 			}
 			text, _ := difflib.GetUnifiedDiffString(diff)
 			if text != "" {
-				t.Fatalf("\n%s", text)
+				t.Fatalf("FILE\n%s", text)
 			}
 		}
 	}
