@@ -21,7 +21,10 @@ func TestRewritePackageVendoring(t *testing.T) {
 			Name:   "result",
 			Import: "github.com/taylorchu/generic/rewrite/test/pkg/basic",
 			TypeMap: map[string]Type{
-				"Type": Type{Expr: "vendoring.Number", Import: []string{"github.com/taylorchu/generic/rewrite/test/pkg/vendoring"}},
+				"Type": Type{Expr: "vendoring.Number", Import: []string{
+					"github.com/taylorchu/generic/rewrite/test/pkg/vendoring",
+					"github.com/taylorchu/generic/rewrite/test/pkg/vendoring",
+				}},
 			},
 		},
 	}}
